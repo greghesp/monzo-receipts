@@ -43,7 +43,7 @@ export interface ParsedReceipt {
 }
 
 export interface MatchCandidate {
-  transaction: MonzoTransaction
+  transaction: MonzoTransaction & { merchant: NonNullable<MonzoTransaction['merchant']> }
   email: GmailMessage
   receipt: ParsedReceipt
   confidence: Confidence
