@@ -1,101 +1,72 @@
-import Image from "next/image";
+import { redirect } from 'next/navigation'
+import db from '@/lib/db'
+import { getConfig, getConfigJson } from '@/lib/db/queries/config'
+import { getToken } from '@/lib/db/queries/tokens'
+import { getMatchStats, getMatches, getPendingReviewMatches } from '@/lib/db/queries/matches'
+import { getLastRun } from '@/lib/db/queries/runs'
+import { fetchAccounts } from '@/lib/monzo/accounts'
+import { getMonzoAccessToken } from '@/lib/token-refresh'
+import StatsRow from '@/components/dashboard/StatsRow'
+import RunControlsWrapper from '@/components/dashboard/RunControlsWrapper'
+import ScheduleStatus from '@/components/dashboard/ScheduleStatus'
+import LastRunResults from '@/components/dashboard/LastRunResults'
+import ConnectionBadgesWrapper from '@/components/dashboard/ConnectionBadgesWrapper'
+import Link from 'next/link'
 
-export default function Home() {
+export const dynamic = 'force-dynamic'
+
+export default async function DashboardPage() {
+  if (!getConfig(db, 'monzo_client_id')) redirect('/setup')
+
+  const monzoConnected = !!getToken(db, 'monzo')
+  const googleConnected = !!getToken(db, 'google')
+  const stats = getMatchStats(db)
+  const lastRun = getLastRun(db)
+  const recentMatches = getMatches(db, 10, 0)
+  const pendingReviews = getPendingReviewMatches(db)
+  const scheduleEnabled = getConfig(db, 'schedule_enabled') === 'true'
+  const scheduleCron = getConfig(db, 'schedule_cron') ?? '0 20 * * *'
+  const appriseUrls = getConfigJson<string[]>(db, 'apprise_urls') ?? []
+  const savedAccounts = getConfigJson<string[]>(db, 'schedule_accounts') ?? []
+
+  let accounts: { id: string; description: string; type: string }[] = []
+  if (monzoConnected) {
+    try {
+      const token = await getMonzoAccessToken(db)
+      accounts = await fetchAccounts(token)
+    } catch { /* token expired — show reconnect */ }
+  }
+
+  const lastRunSummary = lastRun?.status === 'done' ? {
+    completedAt: lastRun.completed_at!,
+    transactionsScanned: lastRun.transactions_scanned,
+    matched: lastRun.matched,
+    needsReview: lastRun.needs_review,
+  } : null
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <main className="min-h-screen bg-slate-950 p-6">
+      <div className="max-w-2xl mx-auto space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-bold text-white">Monzo Receipt Matching</h1>
+            {lastRun && <p className="text-xs text-slate-500 mt-0.5">Last synced: {new Date(lastRun.started_at * 1000).toLocaleString('en-GB')} · cursor saved</p>}
+          </div>
+          <div className="flex items-center gap-2">
+            <ConnectionBadgesWrapper monzoConnected={monzoConnected} googleConnected={googleConnected} />
+            <Link href="/settings" className="bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg px-2.5 py-1.5 text-sm transition-colors">⚙</Link>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
-  );
+
+        <StatsRow total={stats.total} submitted={stats.submitted} pendingReview={stats.pending_review} noMatch={stats.no_match} />
+
+        <div className="bg-slate-800 rounded-xl p-4 space-y-4">
+          <RunControlsWrapper accounts={accounts} defaultSelected={savedAccounts} />
+          <ScheduleStatus enabled={scheduleEnabled} cronExpr={scheduleCron} appriseUrls={appriseUrls} />
+        </div>
+
+        <LastRunResults run={lastRunSummary} recentMatches={recentMatches} pendingCount={pendingReviews.length} />
+      </div>
+    </main>
+  )
 }
