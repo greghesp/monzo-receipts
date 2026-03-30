@@ -17,12 +17,24 @@ export async function fetchTransactionsSince(
   while (true) {
     const url = buildTransactionUrl(accountId, since, currentCursor)
     const resp = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } })
-    if (!resp.ok) throw new Error(`Failed to fetch transactions: ${resp.status}`)
+    if (!resp.ok) {
+      const body = await resp.text().catch(() => '(no body)')
+      try {
+        const json = JSON.parse(body)
+        if (json.code === 'forbidden.verification_required') {
+          throw new Error('MONZO_REAUTH_REQUIRED')
+        }
+        throw new Error(`Monzo ${resp.status}: ${json.message ?? json.code ?? body}`)
+      } catch (e) {
+        if ((e as Error).message === 'MONZO_REAUTH_REQUIRED') throw e
+        throw new Error(`Monzo ${resp.status}: ${body}`)
+      }
+    }
     const { transactions } = await resp.json() as { transactions: MonzoTransaction[] }
     all.push(...transactions)
     if (transactions.length < 100) break
     currentCursor = transactions[transactions.length - 1].id
   }
 
-  return all.filter(t => t.amount < 0)
+  return all.filter(t => t.amount < 0 && !t.decline_reason && t.scheme !== 'uk_retail_pot')
 }

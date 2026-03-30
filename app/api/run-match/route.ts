@@ -1,40 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { runMatch, type SseEvent } from '@/lib/runner'
-
-let isRunning = false
+import { runMatch, type RunOptions } from '@/lib/runner'
+import { runState } from '@/lib/run-state'
 
 export async function POST(req: NextRequest) {
-  if (isRunning) {
+  if (runState.isRunning) {
     return NextResponse.json({ error: 'A run is already in progress' }, { status: 409 })
   }
 
-  const { accountIds } = await req.json() as { accountIds: string[] }
+  const { accountIds, lookbackDays, onlyOnline } = await req.json() as { accountIds: string[] } & RunOptions
   if (!accountIds?.length) {
     return NextResponse.json({ error: 'accountIds required' }, { status: 400 })
   }
 
-  const encoder = new TextEncoder()
-  isRunning = true
+  const options: RunOptions = {}
+  if (lookbackDays !== undefined) options.lookbackDays = lookbackDays
+  if (onlyOnline !== undefined) options.onlyOnline = onlyOnline
 
-  const stream = new ReadableStream({
-    async start(controller) {
-      const emit = (event: SseEvent) => {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`))
-      }
-      try {
-        await runMatch(accountIds, emit)
-      } finally {
-        isRunning = false
-        controller.close()
-      }
-    },
+  runState.isRunning = true
+  runState.log = []
+
+  // Fire and forget — run continues in the background regardless of this request
+  runMatch(accountIds, event => {
+    runState.log.push(event)
+    if (event.type === 'done' || event.type === 'error') {
+      runState.isRunning = false
+    }
+  }, options).catch(err => {
+    runState.log.push({ type: 'error', message: String(err) })
+    runState.isRunning = false
   })
 
-  return new Response(stream, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      Connection: 'keep-alive',
-    },
-  })
+  return NextResponse.json({ started: true })
 }

@@ -28,6 +28,9 @@ export async function refreshMonzoToken(refreshToken: string, clientId: string, 
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ grant_type: 'refresh_token', client_id: clientId, client_secret: clientSecret, refresh_token: refreshToken }),
   })
-  if (!resp.ok) throw new Error('Monzo token refresh failed')
+  if (!resp.ok) {
+    const body = await resp.text().catch(() => '(no body)')
+    throw new Error(`Monzo token refresh failed: ${resp.status} — ${body}`)
+  }
   return resp.json() as Promise<{ access_token: string; refresh_token: string; expires_in: number }>
 }

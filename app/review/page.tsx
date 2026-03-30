@@ -11,10 +11,10 @@ export default function ReviewPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/matches?limit=100')
+    fetch('/api/matches?status=pending_review&limit=200')
       .then(r => r.json())
       .then(d => {
-        setPending((d.matches as MatchRow[]).filter(m => m.status === 'pending_review'))
+        setPending(d.matches as MatchRow[])
         setLoading(false)
       })
   }, [])

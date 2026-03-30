@@ -38,4 +38,7 @@ export function createSchema(db: Database.Database): void {
       matched_at       INTEGER NOT NULL
     );
   `)
+  // Migrations — each is idempotent (SQLite throws if column already exists, which we ignore)
+  try { db.exec('ALTER TABLE matches ADD COLUMN transaction_date TEXT') } catch { /* already exists */ }
+  try { db.exec('ALTER TABLE matches ADD COLUMN merchant_online INTEGER NOT NULL DEFAULT 0') } catch { /* already exists */ }
 }

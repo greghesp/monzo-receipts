@@ -1,4 +1,6 @@
-interface Account { id: string; description: string; type: string }
+import { ACCOUNT_TYPE_LABELS } from '@/lib/monzo/accounts'
+
+interface Account { id: string; description: string; displayName?: string; type: string }
 
 interface Props {
   accounts: Account[]
@@ -30,8 +32,8 @@ export default function AccountMultiSelect({ accounts, selected, onChange }: Pro
               </svg>
             )}
           </div>
-          <span className="text-sm text-slate-200 flex-1">{account.description}</span>
-          <span className="text-xs text-slate-500">{account.type}</span>
+          <span className="text-sm text-slate-200 flex-1">{account.displayName ?? account.description}</span>
+          <span className="text-xs text-slate-500">{ACCOUNT_TYPE_LABELS[account.type] ?? account.type}</span>
         </label>
       ))}
     </div>

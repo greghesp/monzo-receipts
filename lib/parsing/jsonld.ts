@@ -1,6 +1,6 @@
 import type { ParsedReceipt } from '../types'
 
-export function extractJsonLdOrder(html: string): ParsedReceipt | null {
+export function extractJsonLdOrder(html: string, emailDate?: string): ParsedReceipt | null {
   const scriptRegex = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi
   let match: RegExpExecArray | null
 
@@ -15,7 +15,7 @@ export function extractJsonLdOrder(html: string): ParsedReceipt | null {
 
       for (const node of nodes) {
         if (node['@type'] === 'Order' || node['@type'] === 'Invoice') {
-          return parseOrderNode(node)
+          return parseOrderNode(node, emailDate)
         }
       }
     } catch {
@@ -30,7 +30,7 @@ function priceToPence(price: string | number | undefined): number {
   return Math.round(parseFloat(String(price)) * 100)
 }
 
-function parseOrderNode(node: any): ParsedReceipt {
+function parseOrderNode(node: any, emailDate?: string): ParsedReceipt {
   const total =
     priceToPence(node.price) ||
     priceToPence(node.totalPaymentDue?.price) ||
@@ -52,7 +52,7 @@ function parseOrderNode(node: any): ParsedReceipt {
     merchant,
     total,
     currency: node.priceCurrency ?? 'GBP',
-    date: node.orderDate ?? new Date().toISOString(),
+    date: node.orderDate ?? emailDate ?? new Date().toISOString(),
     items,
   }
 }

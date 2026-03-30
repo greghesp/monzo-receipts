@@ -4,19 +4,27 @@ export type RunStatus = 'running' | 'done' | 'error'
 export type MatchStatus = 'submitted' | 'skipped' | 'pending_review' | 'no_match'
 export type Confidence = 'high' | 'medium'
 
+export interface MonzoAccountOwner {
+  user_id: string
+  preferred_name: string
+}
+
 export interface MonzoAccount {
   id: string
   type: string        // 'uk_retail' | 'uk_retail_joint' | 'uk_business'
   description: string
   closed: boolean
+  owners?: MonzoAccountOwner[]
 }
 
 export interface MonzoTransaction {
   id: string
   amount: number      // negative pence for debits
+  decline_reason?: string  // present on declined transactions
+  scheme?: string     // e.g. 'uk_retail_pot' for pot transfers — not real purchases
   currency: string
   created: string     // ISO 8601
-  merchant: { name: string } | null
+  merchant: { name: string; online?: boolean } | null
   description: string
 }
 

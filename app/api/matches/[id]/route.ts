@@ -31,6 +31,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       updateMatchStatus(db, id, 'submitted')
       return NextResponse.json({ ok: true })
     } catch (e) {
+      console.error('[approve] submitReceipt failed:', e)
       return NextResponse.json({ error: String(e) }, { status: 500 })
     }
   }

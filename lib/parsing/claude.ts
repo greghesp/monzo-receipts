@@ -1,15 +1,18 @@
 import type { ParsedReceipt } from '../types'
 
-export function buildParsingPrompt(subject: string, body: string, from: string): string {
+export function buildParsingPrompt(subject: string, body: string, from: string, emailDate?: string): string {
+  const dateHint = emailDate
+    ? `\nEmail received date (use as the "date" value if no explicit order date is found in the body): ${emailDate}`
+    : ''
   return `You are a receipt data extractor. Extract structured receipt information from this email.
 
 From: ${from}
-Subject: ${subject}
+Subject: ${subject}${dateHint}
 
 Email body:
 ${body.slice(0, 8000)}
 
-Return ONLY valid JSON matching this exact structure (no markdown, no explanation):
+Return ONLY valid JSON matching this exact structure. No markdown, no code fences, no explanation — raw JSON only:
 {
   "merchant": "string — merchant name",
   "total": number — total in pence (e.g. £9.99 = 999),
@@ -36,10 +39,16 @@ Rules:
 export async function parseEmailWithClaude(
   subject: string,
   html: string,
-  from: string
+  from: string,
+  emailDate?: string
 ): Promise<ParsedReceipt | null> {
   const apiKey = process.env.OPENROUTER_API_KEY
-  if (!apiKey) return null
+  if (!apiKey) {
+    console.log(`[openrouter] Skipping — OPENROUTER_API_KEY not set`)
+    return null
+  }
+  const model = process.env.OPENROUTER_MODEL ?? 'anthropic/claude-haiku-4-5'
+  console.log(`[openrouter] Calling ${model} for: "${subject}" (from: ${from})`)
   try {
     const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -49,18 +58,39 @@ export async function parseEmailWithClaude(
         'HTTP-Referer': 'http://localhost:3000',
       },
       body: JSON.stringify({
-        model: process.env.OPENROUTER_MODEL ?? 'anthropic/claude-haiku-4-5',
+        model,
         max_tokens: 1024,
-        messages: [{ role: 'user', content: buildParsingPrompt(subject, html, from) }],
+        messages: [{ role: 'user', content: buildParsingPrompt(subject, html, from, emailDate) }],
       }),
     })
-    if (!resp.ok) return null
+    if (!resp.ok) {
+      const body = await resp.text()
+      console.log(`[openrouter] HTTP ${resp.status} error: ${body}`)
+      return null
+    }
     const data = await resp.json() as { choices: Array<{ message: { content: string } }> }
-    const text = data.choices[0]?.message?.content ?? ''
-    const parsed = JSON.parse(text) as ParsedReceipt
-    if (!parsed.merchant || parsed.total === undefined) return null
+    const raw = data.choices[0]?.message?.content ?? ''
+    console.log(`[openrouter] Raw response: ${raw.slice(0, 300)}`)
+    // Extract the JSON object regardless of any surrounding markdown fences or whitespace
+    const start = raw.indexOf('{')
+    const end = raw.lastIndexOf('}')
+    const text = start !== -1 && end !== -1 ? raw.slice(start, end + 1) : raw
+    let parsed: ParsedReceipt
+    try {
+      parsed = JSON.parse(text) as ParsedReceipt
+    } catch (e) {
+      console.log(`[openrouter] JSON parse error: ${e}`)
+      return null
+    }
+    if (!parsed.merchant || parsed.total === undefined) {
+      console.log(`[openrouter] Missing merchant or total — merchant="${parsed.merchant}" total=${parsed.total}`)
+      return null
+    }
+    if (!parsed.date && emailDate) parsed.date = new Date(emailDate).toISOString()
+    console.log(`[openrouter] Parsed OK — merchant="${parsed.merchant}" total=${parsed.total}p date=${parsed.date}`)
     return parsed
-  } catch {
+  } catch (e) {
+    console.log(`[openrouter] Unexpected error: ${e}`)
     return null
   }
 }

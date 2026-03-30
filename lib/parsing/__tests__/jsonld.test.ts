@@ -46,4 +46,35 @@ describe('extractJsonLdOrder', () => {
     const html = makeHtml({ '@type': 'Product', name: 'Widget' })
     expect(extractJsonLdOrder(html)).toBeNull()
   })
+
+  it('uses emailDate as fallback when orderDate is absent', () => {
+    const html = makeHtml({
+      '@context': 'https://schema.org',
+      '@type': 'Order',
+      price: '9.99',
+      priceCurrency: 'GBP',
+      // no orderDate
+      merchant: { name: 'Retailer' },
+      orderedItem: [],
+    })
+    const emailDate = '2026-03-14T09:00:00Z'
+    const result = extractJsonLdOrder(html, emailDate)
+    expect(result).not.toBeNull()
+    expect(result!.date).toBe(emailDate)
+  })
+
+  it('prefers orderDate over emailDate when orderDate is present', () => {
+    const orderDate = '2026-03-10T08:00:00Z'
+    const html = makeHtml({
+      '@context': 'https://schema.org',
+      '@type': 'Order',
+      price: '5.00',
+      priceCurrency: 'GBP',
+      orderDate,
+      merchant: { name: 'Shop' },
+      orderedItem: [],
+    })
+    const result = extractJsonLdOrder(html, '2026-03-14T09:00:00Z')
+    expect(result!.date).toBe(orderDate)
+  })
 })
