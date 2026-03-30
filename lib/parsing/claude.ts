@@ -1,5 +1,29 @@
 import type { ParsedReceipt } from '../types'
 
+export function htmlToText(html: string): string {
+  return html
+    // Remove <style> and <script> blocks entirely
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    // Replace block-level tags with newlines so content doesn't run together
+    .replace(/<\/?(br|p|div|tr|li|h[1-6])[^>]*>/gi, '\n')
+    .replace(/<\/?(td|th)[^>]*>/gi, ' ')
+    // Strip all remaining tags
+    .replace(/<[^>]+>/g, '')
+    // Decode common HTML entities
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#160;/g, ' ')
+    .replace(/&pound;/g, '£')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    // Collapse excessive whitespace / blank lines
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 export function buildParsingPrompt(subject: string, body: string, from: string, emailDate?: string): string {
   const dateHint = emailDate
     ? `\nEmail received date (use as the "date" value if no explicit order date is found in the body): ${emailDate}`
@@ -10,7 +34,7 @@ From: ${from}
 Subject: ${subject}${dateHint}
 
 Email body:
-${body.slice(0, 8000)}
+${htmlToText(body).slice(0, 12000)}
 
 Return ONLY valid JSON matching this exact structure. No markdown, no code fences, no explanation — raw JSON only:
 {
@@ -48,7 +72,9 @@ export async function parseEmailWithClaude(
     return null
   }
   const model = process.env.OPENROUTER_MODEL ?? 'anthropic/claude-haiku-4-5'
-  console.log(`[openrouter] Calling ${model} for: "${subject}" (from: ${from})`)
+  const plainText = htmlToText(html)
+  console.log(`[openrouter] Calling ${model} for: "${subject}" (from: ${from}) — body ${html.length} chars HTML → ${plainText.length} chars plain`)
+  console.log(`[openrouter] Body preview: ${plainText.slice(0, 500)}`)
   try {
     const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -60,7 +86,7 @@ export async function parseEmailWithClaude(
       body: JSON.stringify({
         model,
         max_tokens: 1024,
-        messages: [{ role: 'user', content: buildParsingPrompt(subject, html, from, emailDate) }],
+        messages: [{ role: 'user', content: buildParsingPrompt(subject, plainText, from, emailDate) }],
       }),
     })
     if (!resp.ok) {
