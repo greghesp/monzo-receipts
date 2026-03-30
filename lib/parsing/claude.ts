@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { ParsedReceipt } from '../types'
 
-const client = new Anthropic()
+const client = process.env.ANTHROPIC_API_KEY ? new Anthropic() : null
 
 export function buildParsingPrompt(subject: string, body: string, from: string): string {
   return `You are a receipt data extractor. Extract structured receipt information from this email.
@@ -41,6 +41,7 @@ export async function parseEmailWithClaude(
   html: string,
   from: string
 ): Promise<ParsedReceipt | null> {
+  if (!client) return null
   try {
     const message = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
