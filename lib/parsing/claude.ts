@@ -1,7 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk'
 import type { ParsedReceipt } from '../types'
-
-const client = process.env.ANTHROPIC_API_KEY ? new Anthropic() : null
 
 export function buildParsingPrompt(subject: string, body: string, from: string): string {
   return `You are a receipt data extractor. Extract structured receipt information from this email.
@@ -41,15 +38,25 @@ export async function parseEmailWithClaude(
   html: string,
   from: string
 ): Promise<ParsedReceipt | null> {
-  if (!client) return null
+  const apiKey = process.env.OPENROUTER_API_KEY
+  if (!apiKey) return null
   try {
-    const message = await client.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 1024,
-      messages: [{ role: 'user', content: buildParsingPrompt(subject, html, from) }],
+    const resp = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'http://localhost:3000',
+      },
+      body: JSON.stringify({
+        model: process.env.OPENROUTER_MODEL ?? 'anthropic/claude-haiku-4-5',
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: buildParsingPrompt(subject, html, from) }],
+      }),
     })
-
-    const text = message.content[0].type === 'text' ? message.content[0].text : ''
+    if (!resp.ok) return null
+    const data = await resp.json() as { choices: Array<{ message: { content: string } }> }
+    const text = data.choices[0]?.message?.content ?? ''
     const parsed = JSON.parse(text) as ParsedReceipt
     if (!parsed.merchant || parsed.total === undefined) return null
     return parsed
