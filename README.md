@@ -143,3 +143,72 @@ All data is stored locally in `~/.monzo-receipts/db.sqlite` — nothing leaves y
 npm test          # run test suite
 npm run dev       # development server with hot reload
 ```
+
+## Running with Docker
+
+Docker packages the app and all its dependencies (including Chromium and apprise) into a single image that runs anywhere.
+
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) with Docker Compose v2 (`docker compose` — note: no hyphen)
+
+### Quick start
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and set at minimum:
+- `BASE_URL` — the URL where the app will be accessed (see note below)
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — from Google Cloud Console
+- `OPENROUTER_API_KEY` — optional, for AI email parsing fallback
+
+Then:
+
+```bash
+docker compose up -d
+```
+
+Open `BASE_URL` in your browser to complete the Monzo OAuth setup.
+
+### ⚠️ OAuth redirect URI registration
+
+`BASE_URL` must match the redirect URIs registered in your OAuth apps. If `BASE_URL` changes, update these registrations too.
+
+**Monzo** (developers.monzo.com → your OAuth client → Redirect URLs):
+```
+{BASE_URL}/api/auth/monzo/callback
+```
+
+**Google** (Cloud Console → Credentials → your OAuth client → Authorised redirect URIs):
+```
+{BASE_URL}/api/auth/google/callback
+```
+
+### Manual `docker run` (for Unraid / NAS UIs)
+
+```bash
+docker run -d \
+  -p 3000:3000 \
+  -v $(pwd)/data:/data \
+  -e BASE_URL=http://localhost:3000 \
+  -e GOOGLE_CLIENT_ID=your-client-id \
+  -e GOOGLE_CLIENT_SECRET=your-secret \
+  -e OPENROUTER_API_KEY=sk-or-... \
+  --restart unless-stopped \
+  monzo-receipts
+```
+
+### Data persistence
+
+All data is stored in `./data/db.sqlite` (next to the compose file). Back it up by copying that file.
+
+### Building for multiple architectures (amd64 + arm64)
+
+```bash
+docker buildx build --platform linux/amd64,linux/arm64 -t monzo-receipts .
+```
+
+### Note on Chromium
+
+Chromium is currently bundled for PDF receipt generation via Puppeteer. This dependency may be removed in a future release, which will significantly reduce the image size.
