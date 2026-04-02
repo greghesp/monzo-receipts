@@ -34,6 +34,7 @@ export interface GmailMessage {
   from: string
   date: string        // ISO 8601
   html: string
+  attachments: import('./gmail/attachments').GmailAttachment[]
 }
 
 export interface ParsedReceipt {

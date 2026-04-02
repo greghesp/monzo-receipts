@@ -1,5 +1,6 @@
 import { google } from 'googleapis'
 import type { GmailMessage } from '../types'
+import { findAttachments } from './attachments'
 
 export function buildGmailQuery(sinceIso: string): string {
   const d = new Date(sinceIso)
@@ -42,6 +43,7 @@ export async function readEmail(accessToken: string, messageId: string): Promise
     from: get('from'),
     date: get('date'),
     html,
+    attachments: findAttachments(msg.data.payload),
   }
 }
 

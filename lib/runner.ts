@@ -5,8 +5,11 @@ import { getMatchByTransactionId, upsertMatch } from './db/queries/matches'
 import { getMonzoAccessToken, getAllGoogleAccessTokens, forceRefreshMonzoToken } from './token-refresh'
 import { fetchTransactionsSince, pingWhoAmI } from './monzo/transactions'
 import { searchReceipts, readEmail } from './gmail/search'
+import { findAttachments, pickBestAttachment, downloadGmailAttachment } from './gmail/attachments'
 import { extractJsonLdOrder } from './parsing/jsonld'
 import { parseEmailWithClaude } from './parsing/claude'
+import { parseReceiptFromPdf } from './parsing/pdf'
+import { google } from 'googleapis'
 import { matchEmailsToTransactions } from './matching/match'
 import { scoreConfidence } from './matching/confidence'
 import { submitReceipt } from './monzo/receipts'
@@ -151,13 +154,35 @@ export async function runMatch(
           console.log(`[runner]   → JSON-LD found: merchant="${jsonLd.merchant}" total=${jsonLd.total}p date=${jsonLd.date}`)
           emailsWithReceipts.push({ email, receipt: jsonLd })
         } else {
-          console.log(`[runner]   → No JSON-LD, trying AI...`)
+          console.log(`[runner]   → No JSON-LD, trying AI on email body...`)
           const ai = await parseEmailWithClaude(email.subject, email.html, email.from, email.date)
           if (ai) {
             console.log(`[runner]   → AI parsed: merchant="${ai.merchant}" total=${ai.total}p date=${ai.date}`)
             emailsWithReceipts.push({ email, receipt: ai })
           } else {
-            console.log(`[runner]   → AI returned null — email will not be matched`)
+            // Last resort: try parsing any PDF invoice attachment
+            const pdfs = email.attachments.filter(a => a.mimeType === 'application/pdf')
+            const bestPdf = pickBestAttachment(pdfs)
+            if (bestPdf) {
+              console.log(`[runner]   → Trying PDF attachment: "${bestPdf.filename}"`)
+              try {
+                const auth = new google.auth.OAuth2()
+                auth.setCredentials({ access_token: accessToken })
+                const gmail = google.gmail({ version: 'v1', auth })
+                const pdfBuffer = await downloadGmailAttachment(gmail, msgId, bestPdf.attachmentId)
+                const pdfReceipt = await parseReceiptFromPdf(pdfBuffer, bestPdf.filename)
+                if (pdfReceipt) {
+                  console.log(`[runner]   → PDF parsed: merchant="${pdfReceipt.merchant}" total=${pdfReceipt.total}p date=${pdfReceipt.date}`)
+                  emailsWithReceipts.push({ email, receipt: pdfReceipt })
+                } else {
+                  console.log(`[runner]   → PDF parse returned null — email will not be matched`)
+                }
+              } catch (e) {
+                console.log(`[runner]   → PDF download/parse error: ${e}`)
+              }
+            } else {
+              console.log(`[runner]   → AI returned null, no PDF attachments — email will not be matched`)
+            }
           }
         }
       } catch (e) {

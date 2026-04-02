@@ -4,8 +4,10 @@ import db from '@/lib/db'
 import { getAllGoogleAccessTokens } from '@/lib/token-refresh'
 import { requireSession } from '@/lib/auth/session'
 import { extractHtmlBodyFromPayload } from '@/lib/gmail/extract'
+import { findAttachments, pickBestAttachment, downloadGmailAttachment } from '@/lib/gmail/attachments'
 import { extractJsonLdOrder } from '@/lib/parsing/jsonld'
 import { parseEmailWithClaude } from '@/lib/parsing/claude'
+import { parseReceiptFromPdf } from '@/lib/parsing/pdf'
 import type { GmailMessage } from '@/lib/types'
 
 interface UrlParts {
@@ -71,6 +73,7 @@ function buildGmailMessage(msgData: any, messageId: string): GmailMessage {
     from: get('from'),
     date: get('date'),
     html: extractHtmlBodyFromPayload(msgData.payload),
+    attachments: findAttachments(msgData.payload),
   }
 }
 
@@ -191,9 +194,20 @@ export async function POST(req: NextRequest) {
         const { msgData, messageId } = await resolveMessage(gmail, parts)
         const email = buildGmailMessage(msgData, messageId)
 
-        const receipt =
+        let receipt =
           extractJsonLdOrder(email.html, email.date) ??
           await parseEmailWithClaude(email.subject, email.html, email.from, email.date)
+
+        // If HTML parsing failed, try any attached PDF invoice
+        if (!receipt) {
+          const pdfs = email.attachments.filter(a => a.mimeType === 'application/pdf')
+          const bestPdf = pickBestAttachment(pdfs)
+          if (bestPdf) {
+            console.log(`[manual-match] Trying PDF attachment: "${bestPdf.filename}"`)
+            const pdfBuffer = await downloadGmailAttachment(gmail, messageId, bestPdf.attachmentId)
+            receipt = await parseReceiptFromPdf(pdfBuffer, bestPdf.filename)
+          }
+        }
 
         return NextResponse.json({ email, receipt, messageId })
       } catch (e) {

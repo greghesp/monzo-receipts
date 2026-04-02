@@ -28,7 +28,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
       const receipt = JSON.parse(match.receipt_data)
       const candidate: MatchCandidate = {
         transaction: { id: match.transaction_id, amount: -match.amount, currency: match.currency, created: new Date(match.matched_at * 1000).toISOString(), merchant: { name: match.merchant }, description: match.merchant },
-        email: { messageId: match.external_id?.replace('gmail-', '') ?? '', subject: '', from: '', date: '', html: '' },
+        email: { messageId: match.external_id?.replace('gmail-', '') ?? '', subject: '', from: '', date: '', html: '', attachments: [] },
         receipt,
         confidence: match.confidence ?? 'medium',
       }

@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
       from: '',
       date: receipt.date,
       html: '',
+      attachments: [],
     }
 
     const candidate: MatchCandidate = {
