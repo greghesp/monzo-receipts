@@ -10,7 +10,7 @@ export interface TokenRow {
 }
 
 export function getToken(db: Database.Database, provider: Provider, userId: number | null = null): TokenRow | null {
-  return (db.prepare('SELECT * FROM tokens WHERE user_id IS ? AND provider = ?').get(userId, provider) as TokenRow | undefined) ?? null
+  return (db.prepare('SELECT provider, access_token, refresh_token, expires_at FROM tokens WHERE user_id IS ? AND provider = ?').get(userId, provider) as TokenRow | undefined) ?? null
 }
 
 export function saveToken(db: Database.Database, token: TokenRow, userId: number | null = null): void {
