@@ -1,58 +1,70 @@
+// lib/scheduler.ts
 import { schedule, validate, ScheduledTask } from 'node-cron'
 import db from './db'
 import { getConfig, getConfigJson } from './db/queries/config'
+import { getAllUsers } from './db/queries/users'
 import { runMatch } from './runner'
-import { runState } from './run-state'
+import { getRunState } from './run-state'
 
-let currentTask: ScheduledTask | null = null
+const tasks = new Map<number, ScheduledTask>()
 
 export function initScheduler(): void {
-  restartScheduler()
+  const users = getAllUsers(db)
+  for (const user of users) {
+    restartSchedulerForUser(user.id)
+  }
 }
 
-export function restartScheduler(): void {
-  if (currentTask) {
-    currentTask.stop()
-    currentTask = null
+export function restartSchedulerForUser(userId: number): void {
+  const existing = tasks.get(userId)
+  if (existing) {
+    existing.stop()
+    tasks.delete(userId)
   }
 
-  const enabled = getConfig(db, 'schedule_enabled') === 'true'
+  const enabled = getConfig(db, 'schedule_enabled', userId) === 'true'
   if (!enabled) return
 
-  const cronExpr = getConfig(db, 'schedule_cron') ?? '0 20 * * *'
+  const cronExpr = getConfig(db, 'schedule_cron', userId) ?? '0 20 * * *'
   if (!validate(cronExpr)) {
-    console.error(`Invalid cron expression: ${cronExpr}`)
+    console.error(`[scheduler] Invalid cron for user ${userId}: ${cronExpr}`)
     return
   }
 
-  const accountIds = getConfigJson<string[]>(db, 'schedule_accounts') ?? []
+  const accountIds = getConfigJson<string[]>(db, 'schedule_accounts', userId) ?? []
   if (accountIds.length === 0) {
-    console.warn('Scheduler: no accounts configured, skipping')
+    console.warn(`[scheduler] No accounts for user ${userId}, skipping`)
     return
   }
 
-  currentTask = schedule(cronExpr, async () => {
-    if (runState.isRunning) {
-      console.log('[scheduler] Skipping — run already in progress')
+  const task = schedule(cronExpr, async () => {
+    const state = getRunState(userId)
+    if (state.isRunning) {
+      console.log(`[scheduler] User ${userId}: skipping — run in progress`)
       return
     }
-    console.log(`[scheduler] Starting scheduled run — ${new Date().toISOString()}`)
-    runState.isRunning = true
-    runState.log = []
+    console.log(`[scheduler] User ${userId}: starting scheduled run`)
+    state.isRunning = true
+    state.log = []
     try {
-      await runMatch(accountIds, event => {
-        runState.log.push(event)
+      await runMatch(userId, accountIds, event => {
+        state.log.push(event)
         if (event.type === 'done' || event.type === 'error') {
-          runState.isRunning = false
-          console.log('[scheduler] Run event:', event)
+          state.isRunning = false
         }
       })
     } catch (e) {
-      runState.log.push({ type: 'error', message: String(e) })
-      runState.isRunning = false
-      console.error('[scheduler] Run failed:', e)
+      state.log.push({ type: 'error', message: String(e) })
+      state.isRunning = false
+      console.error(`[scheduler] User ${userId} run failed:`, e)
     }
   })
 
-  console.log(`[scheduler] Scheduled — ${cronExpr}`)
+  tasks.set(userId, task)
+  console.log(`[scheduler] User ${userId} scheduled — ${cronExpr}`)
+}
+
+/** @deprecated use restartSchedulerForUser(userId) */
+export function restartScheduler(): void {
+  console.warn('[scheduler] restartScheduler() is deprecated — use restartSchedulerForUser(userId)')
 }

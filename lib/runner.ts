@@ -2,8 +2,8 @@ import db from './db'
 import { getConfig } from './db/queries/config'
 import { getLastSuccessfulRun, createRun, updateRun } from './db/queries/runs'
 import { getMatchByTransactionId, upsertMatch } from './db/queries/matches'
-import { getMonzoAccessToken, getGoogleAccessToken } from './token-refresh'
-import { fetchTransactionsSince } from './monzo/transactions'
+import { getMonzoAccessToken, getGoogleAccessToken, forceRefreshMonzoToken } from './token-refresh'
+import { fetchTransactionsSince, pingWhoAmI } from './monzo/transactions'
 import { searchReceipts, readEmail } from './gmail/search'
 import { extractJsonLdOrder } from './parsing/jsonld'
 import { parseEmailWithClaude } from './parsing/claude'
@@ -16,6 +16,7 @@ import type { GmailMessage, ParsedReceipt } from './types'
 
 export type SseEvent =
   | { type: 'start'; transactionCount: number }
+  | { type: 'scanning'; emailsFound: number; emailsProcessed: number }
   | { type: 'progress'; transactionId: string; status: 'submitted' | 'pending_review' | 'no_match' | 'skipped'; merchant: string; amount: number }
   | { type: 'done'; matched: number; needsReview: number; noMatch: number; skipped: number }
   | { type: 'error'; message: string }
@@ -26,28 +27,67 @@ export interface RunOptions {
 }
 
 export async function runMatch(
+  userId: number,
   accountIds: string[],
   emit: (event: SseEvent) => void,
   options?: RunOptions
 ): Promise<void> {
-  const runId = createRun(db)
-  const lookbackDays = options?.lookbackDays ?? parseInt(getConfig(db, 'lookback_days') ?? '30', 10)
+  const runId = createRun(db, userId)
+  const lookbackDays = options?.lookbackDays ?? parseInt(getConfig(db, 'lookback_days', userId) ?? '30', 10)
   const sinceDate = new Date(Date.now() - lookbackDays * 86_400_000).toISOString()
-  const lastRun = getLastSuccessfulRun(db)
+  const lastRun = getLastSuccessfulRun(db, userId)
   const cursor = lastRun?.cursor_transaction_id ?? undefined
 
   let matched = 0, needsReview = 0, noMatch = 0, skipped = 0
   let lastTransactionId: string | null = null
 
   try {
-    const monzoToken = await getMonzoAccessToken(db)
-    const googleToken = await getGoogleAccessToken(db)
+    let monzoToken = await getMonzoAccessToken(db, userId)
+    const googleToken = await getGoogleAccessToken(db, userId)
+
+    // Validate the token is genuinely accepted by Monzo before starting the run.
+    // If it fails whoami, force-refresh now rather than discovering it mid-run.
+    const tokenValid = await pingWhoAmI(monzoToken)
+    if (!tokenValid) {
+      console.log('[runner] whoami check failed — force-refreshing Monzo token')
+      try {
+        monzoToken = await forceRefreshMonzoToken(db, userId)
+      } catch {
+        throw new Error('MONZO_REAUTH_REQUIRED')
+      }
+    }
+
+    const fetchWithRetry = async (accountId: string) => {
+      try {
+        return await fetchTransactionsSince(monzoToken, accountId, sinceDate, cursor)
+      } catch (e) {
+        if ((e as Error).message !== 'MONZO_TOKEN_REJECTED') throw e
+        // Token was rejected mid-run — try a force-refresh once then retry
+        console.log('[runner] token rejected mid-run — force-refreshing and retrying')
+        try {
+          monzoToken = await forceRefreshMonzoToken(db, userId)
+        } catch {
+          throw new Error('MONZO_REAUTH_REQUIRED')
+        }
+        try {
+          return await fetchTransactionsSince(monzoToken, accountId, sinceDate, cursor)
+        } catch (e2) {
+          if ((e2 as Error).message === 'MONZO_TOKEN_REJECTED') throw new Error('MONZO_REAUTH_REQUIRED')
+          throw e2
+        }
+      }
+    }
 
     const allTransactions = (
-      await Promise.all(accountIds.map(id => fetchTransactionsSince(monzoToken, id, sinceDate, cursor)))
+      await Promise.all(
+        accountIds.map(async (accountId) => {
+          const txs = await fetchWithRetry(accountId)
+          return txs.map(tx => ({ ...tx, _accountId: accountId }))
+        })
+      )
     ).flat()
 
-    const onlyOnline = options?.onlyOnline ?? (getConfig(db, 'only_online_transactions') === 'true')
+    const onlyOnline = options?.onlyOnline ?? (getConfig(db, 'only_online_transactions', userId) === 'true')
 
     const newTransactions = allTransactions.filter(tx => {
       if (onlyOnline && !tx.merchant?.online) return false
@@ -76,8 +116,10 @@ export async function runMatch(
     const messageIds = await searchReceipts(googleToken, earliest)
     console.log(`[runner] Gmail returned ${messageIds.length} message(s)`)
 
+    emit({ type: 'scanning', emailsFound: messageIds.length, emailsProcessed: 0 })
     const emailsWithReceipts: { email: GmailMessage; receipt: ParsedReceipt }[] = []
-    for (const msgId of messageIds) {
+    for (let i = 0; i < messageIds.length; i++) {
+      const msgId = messageIds[i]
       try {
         const email = await readEmail(googleToken, msgId)
         console.log(`[runner] Email: "${email.subject}" from ${email.from} date=${email.date}`)
@@ -98,6 +140,7 @@ export async function runMatch(
       } catch (e) {
         console.log(`[runner]   → Error reading email ${msgId}: ${e}`)
       }
+      emit({ type: 'scanning', emailsFound: messageIds.length, emailsProcessed: i + 1 })
     }
 
     console.log(`[runner] ${emailsWithReceipts.length} email(s) with parsed receipts`)
@@ -124,6 +167,7 @@ export async function runMatch(
     for (const candidate of candidates) {
       const txDate = candidate.transaction.created
       const txOnline = candidate.transaction.merchant?.online ?? false
+      const txAccountId = (candidate.transaction as any)._accountId ?? null
       if (candidate.confidence === 'high') {
         try {
           await submitReceipt(monzoToken, candidate)
@@ -138,16 +182,17 @@ export async function runMatch(
             receipt_data: JSON.stringify(candidate.receipt),
             transaction_date: txDate,
             merchant_online: txOnline,
+            account_id: txAccountId,
           })
           matched++
           emit({ type: 'progress', transactionId: candidate.transaction.id, status: 'submitted', merchant: candidate.receipt.merchant, amount: candidate.receipt.total })
         } catch {
-          upsertMatch(db, { transaction_id: candidate.transaction.id, external_id: `gmail-${candidate.email.messageId}`, merchant: candidate.receipt.merchant, amount: candidate.receipt.total, currency: candidate.receipt.currency, status: 'pending_review', confidence: 'high', receipt_data: JSON.stringify(candidate.receipt), transaction_date: txDate, merchant_online: txOnline })
+          upsertMatch(db, { transaction_id: candidate.transaction.id, external_id: `gmail-${candidate.email.messageId}`, merchant: candidate.receipt.merchant, amount: candidate.receipt.total, currency: candidate.receipt.currency, status: 'pending_review', confidence: 'high', receipt_data: JSON.stringify(candidate.receipt), transaction_date: txDate, merchant_online: txOnline, account_id: txAccountId })
           needsReview++
           emit({ type: 'progress', transactionId: candidate.transaction.id, status: 'pending_review', merchant: candidate.receipt.merchant, amount: candidate.receipt.total })
         }
       } else {
-        upsertMatch(db, { transaction_id: candidate.transaction.id, external_id: `gmail-${candidate.email.messageId}`, merchant: candidate.receipt.merchant, amount: candidate.receipt.total, currency: candidate.receipt.currency, status: 'pending_review', confidence: 'medium', receipt_data: JSON.stringify(candidate.receipt), transaction_date: txDate, merchant_online: txOnline })
+        upsertMatch(db, { transaction_id: candidate.transaction.id, external_id: `gmail-${candidate.email.messageId}`, merchant: candidate.receipt.merchant, amount: candidate.receipt.total, currency: candidate.receipt.currency, status: 'pending_review', confidence: 'medium', receipt_data: JSON.stringify(candidate.receipt), transaction_date: txDate, merchant_online: txOnline, account_id: txAccountId })
         needsReview++
         emit({ type: 'progress', transactionId: candidate.transaction.id, status: 'pending_review', merchant: candidate.receipt.merchant, amount: candidate.receipt.total })
       }
@@ -155,9 +200,10 @@ export async function runMatch(
 
     for (const tx of newTransactions) {
       if (!matchedTransactionIds.has(tx.id)) {
+        const txAccountId = (tx as any)._accountId ?? null
         const existing = getMatchByTransactionId(db, tx.id)
         if (!existing) {
-          upsertMatch(db, { transaction_id: tx.id, external_id: null, merchant: tx.merchant?.name ?? tx.description, amount: Math.abs(tx.amount), currency: tx.currency, status: 'no_match', confidence: null, receipt_data: null, transaction_date: tx.created, merchant_online: tx.merchant?.online ?? false })
+          upsertMatch(db, { transaction_id: tx.id, external_id: null, merchant: tx.merchant?.name ?? tx.description, amount: Math.abs(tx.amount), currency: tx.currency, status: 'no_match', confidence: null, receipt_data: null, transaction_date: tx.created, merchant_online: tx.merchant?.online ?? false, account_id: txAccountId })
           noMatch++
           emit({ type: 'progress', transactionId: tx.id, status: 'no_match', merchant: tx.merchant?.name ?? tx.description, amount: Math.abs(tx.amount) })
         } else {
