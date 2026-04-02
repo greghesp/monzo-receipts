@@ -4,20 +4,31 @@ import { getConfig } from './db/queries/config'
 import { refreshMonzoToken } from './auth/monzo'
 import { getGoogleOAuthClient } from './auth/google'
 
-export async function getMonzoAccessToken(db: Database.Database): Promise<string> {
-  const token = getToken(db, 'monzo')
+export async function getMonzoAccessToken(db: Database.Database, userId: number): Promise<string> {
+  const token = getToken(db, 'monzo', userId)
   if (!token) throw new Error('Monzo not connected')
   if (!isTokenExpiredOrExpiringSoon(token)) return token.access_token
+  return forceRefreshMonzoToken(db, userId)
+}
 
-  const clientId = getConfig(db, 'monzo_client_id')!
-  const clientSecret = getConfig(db, 'monzo_client_secret')!
+/** Force a token refresh regardless of expiry — use when Monzo rejects the current token */
+export async function forceRefreshMonzoToken(db: Database.Database, userId: number): Promise<string> {
+  const token = getToken(db, 'monzo', userId)
+  if (!token) throw new Error('Monzo not connected')
+  const clientId = getConfig(db, 'monzo_client_id')!       // global key — no userId
+  const clientSecret = getConfig(db, 'monzo_client_secret')! // global key — no userId
   const fresh = await refreshMonzoToken(token.refresh_token, clientId, clientSecret)
-  saveToken(db, { provider: 'monzo', access_token: fresh.access_token, refresh_token: fresh.refresh_token, expires_at: Math.floor(Date.now() / 1000) + fresh.expires_in })
+  saveToken(db, {
+    provider: 'monzo',
+    access_token: fresh.access_token,
+    refresh_token: fresh.refresh_token,
+    expires_at: Math.floor(Date.now() / 1000) + fresh.expires_in,
+  }, userId)
   return fresh.access_token
 }
 
-export async function getGoogleAccessToken(db: Database.Database): Promise<string> {
-  const token = getToken(db, 'google')
+export async function getGoogleAccessToken(db: Database.Database, userId: number): Promise<string> {
+  const token = getToken(db, 'google', userId)
   if (!token) throw new Error('Gmail not connected')
   if (!isTokenExpiredOrExpiringSoon(token)) return token.access_token
 
@@ -25,6 +36,11 @@ export async function getGoogleAccessToken(db: Database.Database): Promise<strin
   client.setCredentials({ refresh_token: token.refresh_token })
   const { credentials } = await client.refreshAccessToken()
   if (!credentials.access_token) throw new Error('Google token refresh failed')
-  saveToken(db, { provider: 'google', access_token: credentials.access_token, refresh_token: credentials.refresh_token ?? token.refresh_token, expires_at: Math.floor((credentials.expiry_date ?? Date.now() + 3_600_000) / 1000) })
+  saveToken(db, {
+    provider: 'google',
+    access_token: credentials.access_token,
+    refresh_token: credentials.refresh_token ?? token.refresh_token,
+    expires_at: Math.floor((credentials.expiry_date ?? Date.now() + 3_600_000) / 1000),
+  }, userId)
   return credentials.access_token
 }

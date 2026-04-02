@@ -1,11 +1,18 @@
 import type { SseEvent } from './runner'
 
-/**
- * Shared in-memory state for the currently active (or most recently completed)
- * matching run. Populated by both the API route and the scheduler so the
- * dashboard can show live progress regardless of how the run was triggered.
- */
-export const runState = {
-  isRunning: false,
-  log: [] as SseEvent[],
+interface UserRunState {
+  isRunning: boolean
+  log: SseEvent[]
 }
+
+const states = new Map<number, UserRunState>()
+
+export function getRunState(userId: number): UserRunState {
+  if (!states.has(userId)) {
+    states.set(userId, { isRunning: false, log: [] })
+  }
+  return states.get(userId)!
+}
+
+/** @deprecated Use getRunState(userId) instead */
+export const runState = { isRunning: false, log: [] as SseEvent[] }
