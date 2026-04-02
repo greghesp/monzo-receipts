@@ -15,11 +15,11 @@ export function setConfig(db: Database.Database, key: string, value: string, use
   upsert()
 }
 
-export function getConfigJson<T>(db: Database.Database, key: string): T | null {
-  const raw = getConfig(db, key)
+export function getConfigJson<T>(db: Database.Database, key: string, userId: number | null = null): T | null {
+  const raw = getConfig(db, key, userId)
   return raw === null ? null : JSON.parse(raw) as T
 }
 
-export function setConfigJson<T>(db: Database.Database, key: string, value: T): void {
-  setConfig(db, key, JSON.stringify(value))
+export function setConfigJson<T>(db: Database.Database, key: string, value: T, userId: number | null = null): void {
+  setConfig(db, key, JSON.stringify(value), userId)
 }

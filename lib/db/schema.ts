@@ -20,6 +20,7 @@ export function createSchema(db: Database.Database): void {
 
     CREATE TABLE IF NOT EXISTS runs (
       id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id                INTEGER REFERENCES users(id),
       started_at             INTEGER NOT NULL,
       completed_at           INTEGER,
       status                 TEXT NOT NULL DEFAULT 'running',
@@ -106,7 +107,7 @@ export function createSchema(db: Database.Database): void {
         value TEXT NOT NULL
       );
       CREATE TABLE config_new (
-        user_id INTEGER,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         key     TEXT NOT NULL,
         value   TEXT NOT NULL,
         PRIMARY KEY (user_id, key)
@@ -118,7 +119,7 @@ export function createSchema(db: Database.Database): void {
   } else {
     db.exec(`
       CREATE TABLE IF NOT EXISTS config (
-        user_id INTEGER,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
         key     TEXT NOT NULL,
         value   TEXT NOT NULL,
         PRIMARY KEY (user_id, key)
