@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 
 export default function SetupPage() {
   const router = useRouter()
-  const [form, setForm] = useState({ client_id: '', client_secret: '', owner_id: '' })
+  const [form, setForm] = useState({ client_id: '', client_secret: '' })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -19,11 +19,10 @@ export default function SetupPage() {
         body: JSON.stringify({
           monzo_client_id: form.client_id,
           monzo_client_secret: form.client_secret,
-          monzo_owner_id: form.owner_id,
         }),
       })
       if (!res.ok) throw new Error('Failed to save')
-      router.push('/api/auth/monzo')
+      router.push('/auth/register')
     } catch (e) {
       setError(String(e))
       setSaving(false)
@@ -43,7 +42,6 @@ export default function SetupPage() {
           {[
             { label: 'Client ID', key: 'client_id', placeholder: 'oauth2client_...' },
             { label: 'Client Secret', key: 'client_secret', placeholder: '' },
-            { label: 'Owner ID', key: 'owner_id', placeholder: 'user_...' },
           ].map(({ label, key, placeholder }) => (
             <div key={key}>
               <label className="block text-sm text-slate-300 mb-1">{label}</label>
@@ -63,7 +61,7 @@ export default function SetupPage() {
             disabled={saving}
             className="w-full bg-orange-500 hover:bg-orange-400 disabled:opacity-50 text-white font-semibold rounded-lg py-2.5 text-sm transition-colors"
           >
-            {saving ? 'Saving...' : 'Save & Connect Monzo'}
+            {saving ? 'Saving...' : 'Save Credentials'}
           </button>
         </form>
       </div>
