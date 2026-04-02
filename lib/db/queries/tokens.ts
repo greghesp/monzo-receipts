@@ -7,21 +7,27 @@ export interface TokenRow {
   access_token: string
   refresh_token: string
   expires_at: number
+  user_id?: number | null
 }
 
-export function getToken(db: Database.Database, provider: Provider): TokenRow | null {
-  return (db.prepare('SELECT * FROM tokens WHERE provider = ?').get(provider) as TokenRow | undefined) ?? null
+export function getToken(db: Database.Database, provider: Provider, userId: number | null = null): TokenRow | null {
+  return (db.prepare('SELECT * FROM tokens WHERE user_id IS ? AND provider = ?').get(userId, provider) as TokenRow | undefined) ?? null
 }
 
-export function saveToken(db: Database.Database, token: TokenRow): void {
-  db.prepare(`
-    INSERT OR REPLACE INTO tokens (provider, access_token, refresh_token, expires_at)
-    VALUES (@provider, @access_token, @refresh_token, @expires_at)
-  `).run(token)
+export function saveToken(db: Database.Database, token: TokenRow, userId: number | null = null): void {
+  const user_id = token.user_id !== undefined ? token.user_id : userId
+  // Use delete+insert because SQLite NULL != NULL in composite PKs, so INSERT OR REPLACE
+  // creates duplicates when user_id is NULL.
+  const upsert = db.transaction(() => {
+    db.prepare('DELETE FROM tokens WHERE user_id IS ? AND provider = ?').run(user_id, token.provider)
+    db.prepare('INSERT INTO tokens (user_id, provider, access_token, refresh_token, expires_at) VALUES (?, ?, ?, ?, ?)')
+      .run(user_id, token.provider, token.access_token, token.refresh_token, token.expires_at)
+  })
+  upsert()
 }
 
-export function deleteToken(db: Database.Database, provider: Provider): void {
-  db.prepare('DELETE FROM tokens WHERE provider = ?').run(provider)
+export function deleteToken(db: Database.Database, provider: Provider, userId: number | null = null): void {
+  db.prepare('DELETE FROM tokens WHERE user_id IS ? AND provider = ?').run(userId, provider)
 }
 
 export function isTokenExpiredOrExpiringSoon(token: TokenRow): boolean {
