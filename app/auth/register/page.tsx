@@ -1,14 +1,15 @@
 'use client'
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 
 export default function RegisterPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [form, setForm] = useState({ username: '', password: '', confirm: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   // Determine mode from URL: ?mode=add (logged-in add) vs default (first-run)
-  const isAddMode = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('mode') === 'add'
+  const isAddMode = searchParams.get('mode') === 'add'
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
