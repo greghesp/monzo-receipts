@@ -5,6 +5,7 @@ import { buildMonzoAuthUrl } from '@/lib/auth/monzo'
 
 export async function GET() {
   const clientId = getConfig(db, 'monzo_client_id')
-  if (!clientId) return NextResponse.redirect(new URL('/setup', 'http://localhost:3000'))
+  const baseUrl = process.env.BASE_URL ?? 'http://localhost:3000'
+  if (!clientId) return NextResponse.redirect(new URL('/setup', baseUrl))
   return NextResponse.redirect(buildMonzoAuthUrl(clientId))
 }
