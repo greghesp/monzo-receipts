@@ -7,7 +7,6 @@ export interface TokenRow {
   access_token: string
   refresh_token: string
   expires_at: number
-  user_id?: number | null
 }
 
 export function getToken(db: Database.Database, provider: Provider, userId: number | null = null): TokenRow | null {

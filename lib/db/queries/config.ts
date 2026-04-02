@@ -17,7 +17,12 @@ export function setConfig(db: Database.Database, key: string, value: string, use
 
 export function getConfigJson<T>(db: Database.Database, key: string, userId: number | null = null): T | null {
   const raw = getConfig(db, key, userId)
-  return raw === null ? null : JSON.parse(raw) as T
+  if (raw === null) return null
+  try {
+    return JSON.parse(raw) as T
+  } catch {
+    return null
+  }
 }
 
 export function setConfigJson<T>(db: Database.Database, key: string, value: T, userId: number | null = null): void {

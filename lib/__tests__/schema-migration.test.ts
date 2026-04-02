@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3'
 import { createSchema } from '../db/schema'
+import { getToken, saveToken } from '../db/queries/tokens'
 
 const makeDb = () => {
   const db = new Database(':memory:')
@@ -54,6 +55,10 @@ describe('schema migration', () => {
     const row = db.prepare("SELECT * FROM config WHERE key = 'monzo_client_id'").get() as { key: string; value: string; user_id: number | null }
     expect(row.value).toBe('cid_test')
     expect(row.user_id).toBeNull()
+    const pkCols = (db.prepare("PRAGMA table_info(config)").all() as { name: string; pk: number }[])
+      .filter(c => c.pk > 0)
+      .map(c => c.name)
+    expect(pkCols).toEqual(expect.arrayContaining(['user_id', 'key']))
   })
 
   it('preserves existing tokens rows after migration (user_id = NULL)', () => {
@@ -71,10 +76,13 @@ describe('schema migration', () => {
     const row = db.prepare("SELECT * FROM tokens WHERE provider = 'monzo'").get() as { provider: string; access_token: string; user_id: number | null }
     expect(row.access_token).toBe('acc_test')
     expect(row.user_id).toBeNull()
+    const pkCols = (db.prepare("PRAGMA table_info(tokens)").all() as { name: string; pk: number }[])
+      .filter(c => c.pk > 0)
+      .map(c => c.name)
+    expect(pkCols).toEqual(expect.arrayContaining(['user_id', 'provider']))
   })
 
   it('getToken and saveToken scope correctly to user_id', () => {
-    const { getToken, saveToken } = require('../db/queries/tokens')
     const db = makeDb()
     const tokenA = { provider: 'monzo' as const, access_token: 'acc_a', refresh_token: 'ref_a', expires_at: 9999999999 }
     const tokenB = { provider: 'monzo' as const, access_token: 'acc_b', refresh_token: 'ref_b', expires_at: 9999999999 }

@@ -47,12 +47,17 @@ export function createSchema(db: Database.Database): void {
   `)
 
   // ── Idempotent column additions (matches table) ───────────────────────────
-  const tryAlter = (sql: string) => { try { db.exec(sql) } catch { /* already exists */ } }
+  const tryAlter = (sql: string) => {
+    try {
+      db.exec(sql)
+    } catch (err) {
+      if (!(err instanceof Error && err.message.includes('duplicate column name'))) throw err
+    }
+  }
 
   tryAlter('ALTER TABLE matches ADD COLUMN transaction_date TEXT')
   tryAlter('ALTER TABLE matches ADD COLUMN merchant_online INTEGER NOT NULL DEFAULT 0')
   tryAlter('ALTER TABLE matches ADD COLUMN account_id TEXT')
-  tryAlter('ALTER TABLE runs ADD COLUMN user_id INTEGER REFERENCES users(id)')
 
   // ── Table-rebuild migrations for tokens and config ───────────────────────
   // SQLite cannot change PRIMARY KEY via ALTER TABLE, so we use the
@@ -64,25 +69,29 @@ export function createSchema(db: Database.Database): void {
 
   if (!tokensHasUserId) {
     // tokens table may not exist yet on a fresh install
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS tokens (
-        provider      TEXT PRIMARY KEY,
-        access_token  TEXT NOT NULL,
-        refresh_token TEXT NOT NULL,
-        expires_at    INTEGER NOT NULL
-      );
-      CREATE TABLE tokens_new (
-        user_id       INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        provider      TEXT NOT NULL,
-        access_token  TEXT NOT NULL,
-        refresh_token TEXT NOT NULL,
-        expires_at    INTEGER NOT NULL,
-        PRIMARY KEY (user_id, provider)
-      );
-      INSERT INTO tokens_new SELECT NULL, provider, access_token, refresh_token, expires_at FROM tokens;
-      DROP TABLE tokens;
-      ALTER TABLE tokens_new RENAME TO tokens;
-    `)
+    db.transaction(() => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS tokens (
+          provider      TEXT PRIMARY KEY,
+          access_token  TEXT NOT NULL,
+          refresh_token TEXT NOT NULL,
+          expires_at    INTEGER NOT NULL
+        );
+      `)
+      db.exec(`
+        CREATE TABLE tokens_new (
+          user_id       INTEGER REFERENCES users(id) ON DELETE CASCADE,
+          provider      TEXT NOT NULL,
+          access_token  TEXT NOT NULL,
+          refresh_token TEXT NOT NULL,
+          expires_at    INTEGER NOT NULL,
+          PRIMARY KEY (user_id, provider)
+        );
+      `)
+      db.exec(`INSERT INTO tokens_new SELECT NULL, provider, access_token, refresh_token, expires_at FROM tokens;`)
+      db.exec(`DROP TABLE tokens;`)
+      db.exec(`ALTER TABLE tokens_new RENAME TO tokens;`)
+    })()
   } else {
     // user_id column already exists (post-migration or fresh install) — just ensure table exists
     db.exec(`
@@ -101,21 +110,25 @@ export function createSchema(db: Database.Database): void {
     .some(c => c.name === 'user_id')
 
   if (!configHasUserId) {
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS config (
-        key   TEXT PRIMARY KEY,
-        value TEXT NOT NULL
-      );
-      CREATE TABLE config_new (
-        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-        key     TEXT NOT NULL,
-        value   TEXT NOT NULL,
-        PRIMARY KEY (user_id, key)
-      );
-      INSERT INTO config_new SELECT NULL, key, value FROM config;
-      DROP TABLE config;
-      ALTER TABLE config_new RENAME TO config;
-    `)
+    db.transaction(() => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS config (
+          key   TEXT PRIMARY KEY,
+          value TEXT NOT NULL
+        );
+      `)
+      db.exec(`
+        CREATE TABLE config_new (
+          user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+          key     TEXT NOT NULL,
+          value   TEXT NOT NULL,
+          PRIMARY KEY (user_id, key)
+        );
+      `)
+      db.exec(`INSERT INTO config_new SELECT NULL, key, value FROM config;`)
+      db.exec(`DROP TABLE config;`)
+      db.exec(`ALTER TABLE config_new RENAME TO config;`)
+    })()
   } else {
     db.exec(`
       CREATE TABLE IF NOT EXISTS config (
