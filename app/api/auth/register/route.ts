@@ -6,7 +6,12 @@ import { createSessionRow } from '@/lib/db/queries/sessions'
 import { hashPassword, generateSessionToken, setSessionCookie, requireSession, SESSION_COOKIE_NAME } from '@/lib/auth/session'
 
 export async function POST(req: NextRequest) {
-  const { username, password } = await req.json() as { username?: string; password?: string }
+  let username: string | undefined, password: string | undefined
+  try {
+    ;({ username, password } = await req.json() as { username?: string; password?: string })
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  }
 
   if (!username?.trim() || !password) {
     return NextResponse.json({ error: 'Username and password required' }, { status: 400 })
