@@ -177,15 +177,23 @@ Open `BASE_URL` in your browser to complete the Monzo OAuth setup.
 
 **Monzo** (developers.monzo.com → your OAuth client → Redirect URLs):
 ```
-{BASE_URL}/api/auth/monzo/callback
+http://192.168.1.50:3000/api/auth/monzo/callback   ← replace with your BASE_URL
 ```
 
 **Google** (Cloud Console → Credentials → your OAuth client → Authorised redirect URIs):
 ```
-{BASE_URL}/api/auth/google/callback
+http://192.168.1.50:3000/api/auth/google/callback  ← replace with your BASE_URL
 ```
 
 ### Manual `docker run` (for Unraid / NAS UIs)
+
+First build the image:
+
+```bash
+docker build -t monzo-receipts .
+```
+
+Then run it:
 
 ```bash
 docker run -d \
