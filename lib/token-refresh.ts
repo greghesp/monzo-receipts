@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3'
-import { getToken, saveToken, isTokenExpiredOrExpiringSoon } from './db/queries/tokens'
+import { getToken, getTokens, saveToken, isTokenExpiredOrExpiringSoon } from './db/queries/tokens'
 import { getConfig } from './db/queries/config'
 import { refreshMonzoToken } from './auth/monzo'
 import { getGoogleOAuthClient } from './auth/google'
@@ -21,6 +21,7 @@ export async function forceRefreshMonzoToken(db: Database.Database, userId: numb
   const fresh = await refreshMonzoToken(token.refresh_token, clientId, clientSecret)
   saveToken(db, {
     provider: 'monzo',
+    email: '',
     access_token: fresh.access_token,
     refresh_token: fresh.refresh_token,
     expires_at: Math.floor(Date.now() / 1000) + fresh.expires_in,
@@ -39,6 +40,7 @@ export async function getGoogleAccessToken(db: Database.Database, userId: number
   if (!credentials.access_token) throw new Error('Google token refresh failed')
   saveToken(db, {
     provider: 'google',
+    email: token.email,
     access_token: credentials.access_token,
     refresh_token: credentials.refresh_token ?? token.refresh_token,
     expires_at: Math.floor((credentials.expiry_date ?? Date.now() + 3_600_000) / 1000),

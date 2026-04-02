@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import db from '@/lib/db'
 import { getConfig, getConfigJson } from '@/lib/db/queries/config'
-import { getToken } from '@/lib/db/queries/tokens'
+import { getToken, getTokens } from '@/lib/db/queries/tokens'
 import { getMatchStats, getPendingReviewMatches } from '@/lib/db/queries/matches'
 import { getLastRun } from '@/lib/db/queries/runs'
 import { fetchAccounts, accountDisplayName } from '@/lib/monzo/accounts'
@@ -26,7 +26,8 @@ export default async function DashboardPage() {
   const { userId, username } = session
 
   const monzoConnected = !!getToken(db, 'monzo', userId)
-  const googleConnected = !!getToken(db, 'google', userId)
+  const googleTokens = getTokens(db, 'google', userId)
+  const googleConnected = googleTokens.length > 0
   const stats = getMatchStats(db)
   const lastRun = getLastRun(db, userId)
   const pendingReviews = getPendingReviewMatches(db)

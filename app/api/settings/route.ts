@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 import { getConfig, setConfig, getConfigJson, setConfigJson } from '@/lib/db/queries/config'
-import { getToken } from '@/lib/db/queries/tokens'
+import { getToken, getTokens } from '@/lib/db/queries/tokens'
 import { requireSession } from '@/lib/auth/session'
 import { restartSchedulerForUser } from '@/lib/scheduler'
 
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   const uid = session.userId
 
   const monzoToken = getToken(db, 'monzo', uid)
-  const googleToken = getToken(db, 'google', uid)
+  const googleTokens = getTokens(db, 'google', uid)
 
   return NextResponse.json({
     monzo_client_id: getConfig(db, 'monzo_client_id'),          // global
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     apprise_urls: getConfigJson<string[]>(db, 'apprise_urls', uid) ?? [],
     only_online_transactions: getConfig(db, 'only_online_transactions', uid) === 'true',
     monzo_connected: !!monzoToken,
-    google_connected: !!googleToken,
+    google_connected: googleTokens.length > 0,
   })
 }
 

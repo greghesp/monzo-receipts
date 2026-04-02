@@ -2,7 +2,7 @@ import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import db from '@/lib/db'
 import { getConfig, getConfigJson } from '@/lib/db/queries/config'
-import { getToken } from '@/lib/db/queries/tokens'
+import { getToken, getTokens } from '@/lib/db/queries/tokens'
 import { getMonzoAccessToken } from '@/lib/token-refresh'
 import { fetchAccounts, accountDisplayName } from '@/lib/monzo/accounts'
 import { requireSession } from '@/lib/auth/session'
@@ -22,7 +22,7 @@ export default async function SettingsPage() {
   const { userId } = session
 
   const monzoConnected = !!getToken(db, 'monzo', userId)
-  const googleConnected = !!getToken(db, 'google', userId)
+  const googleConnected = getTokens(db, 'google', userId).length > 0
   const scheduleEnabled = getConfig(db, 'schedule_enabled', userId) === 'true'
   const scheduleCron = getConfig(db, 'schedule_cron', userId) ?? '0 20 * * *'
   const savedAccounts = getConfigJson<string[]>(db, 'schedule_accounts', userId) ?? []

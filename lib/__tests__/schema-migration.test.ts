@@ -124,8 +124,8 @@ describe('schema migration', () => {
 
   it('getToken and saveToken scope correctly to user_id', () => {
     const db = makeDb()
-    const tokenA = { provider: 'monzo' as const, access_token: 'acc_a', refresh_token: 'ref_a', expires_at: 9999999999 }
-    const tokenB = { provider: 'monzo' as const, access_token: 'acc_b', refresh_token: 'ref_b', expires_at: 9999999999 }
+    const tokenA = { provider: 'monzo' as const, email: '', access_token: 'acc_a', refresh_token: 'ref_a', expires_at: 9999999999 }
+    const tokenB = { provider: 'monzo' as const, email: '', access_token: 'acc_b', refresh_token: 'ref_b', expires_at: 9999999999 }
     // Insert users so FK constraint is satisfied
     db.prepare("INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)").run('user1', 'hash1', 1)
     db.prepare("INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)").run('user2', 'hash2', 1)

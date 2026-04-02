@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
     if (!tokens.access_token || !tokens.refresh_token) throw new Error('Missing tokens')
     saveToken(db, {
       provider: 'google',
+      email: '',
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
       expires_at: Math.floor((tokens.expiry_date ?? Date.now() + 3_600_000) / 1000),

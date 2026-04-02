@@ -24,7 +24,7 @@ describe('getMonzoAccessToken', () => {
   it('returns current token when not expiring', async () => {
     const db = makeDb()
     createUser(db, 'test', 'pw')
-    saveToken(db, { provider: 'monzo', access_token: 'valid', refresh_token: 'rt', expires_at: future() }, userId)
+    saveToken(db, { provider: 'monzo', email: '', access_token: 'valid', refresh_token: 'rt', expires_at: future() }, userId)
     setConfig(db, 'monzo_client_id', 'cid')
     setConfig(db, 'monzo_client_secret', 'csec')
     expect(await getMonzoAccessToken(db, userId)).toBe('valid')
@@ -38,7 +38,7 @@ describe('getMonzoAccessToken', () => {
   it('refreshes when near expiry', async () => {
     const db = makeDb()
     createUser(db, 'test', 'pw')
-    saveToken(db, { provider: 'monzo', access_token: 'old', refresh_token: 'rt', expires_at: nearExpiry() }, userId)
+    saveToken(db, { provider: 'monzo', email: '', access_token: 'old', refresh_token: 'rt', expires_at: nearExpiry() }, userId)
     setConfig(db, 'monzo_client_id', 'cid')
     setConfig(db, 'monzo_client_secret', 'csec')
     expect(await getMonzoAccessToken(db, userId)).toBe('new_at')

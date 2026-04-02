@@ -22,6 +22,7 @@ export async function GET(req: NextRequest) {
     const t = await exchangeMonzoCode(code, clientId, clientSecret)
     saveToken(db, {
       provider: 'monzo',
+      email: '',
       access_token: t.access_token,
       refresh_token: t.refresh_token,
       expires_at: Math.floor(Date.now() / 1000) + t.expires_in,
