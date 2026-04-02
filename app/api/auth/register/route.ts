@@ -13,7 +13,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
   }
 
-  if (!username?.trim() || !password) {
+  const trimmedUsername = username?.trim()
+  if (!trimmedUsername || !password) {
     return NextResponse.json({ error: 'Username and password required' }, { status: 400 })
   }
   if (password.length < 4) {
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  if (getUserByUsername(db, username)) {
+  if (getUserByUsername(db, trimmedUsername)) {
     return NextResponse.json({ error: 'Username already taken' }, { status: 409 })
   }
 
@@ -39,7 +40,7 @@ export async function POST(req: NextRequest) {
 
   // Wrap in a transaction so data migration and user creation are atomic
   const userId = db.transaction(() => {
-    const id = createUser(db, username, hash)
+    const id = createUser(db, trimmedUsername, hash)
 
     if (isFirstUser) {
       // Reassign orphaned rows (from pre-migration single-user data) to this user
