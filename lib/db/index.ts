@@ -1,17 +1,17 @@
 import Database from 'better-sqlite3'
 import path from 'path'
-import { homedir } from 'os'
 import { mkdirSync } from 'fs'
 import { createSchema } from './schema'
+import { resolveDbPath } from './path'
 
-const DB_DIR = path.join(homedir(), '.monzo-receipts')
-const DB_PATH = path.join(DB_DIR, 'db.sqlite')
+const dbPath = resolveDbPath()
+const DB_DIR = path.dirname(dbPath)
 
 declare global { var _db: Database.Database | undefined }
 
 function openDb(): Database.Database {
   mkdirSync(DB_DIR, { recursive: true })
-  const db = new Database(DB_PATH)
+  const db = new Database(dbPath)
   db.pragma('journal_mode = WAL')
   db.pragma('foreign_keys = ON')
   createSchema(db)
