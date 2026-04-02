@@ -1,15 +1,20 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 import { getConfig } from '@/lib/db/queries/config'
 import { getMonzoAccessToken } from '@/lib/token-refresh'
+import { requireSession } from '@/lib/auth/session'
 import { fetchAccounts } from '@/lib/monzo/accounts'
 import { fetchTransactionsSince } from '@/lib/monzo/transactions'
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const session = requireSession(db, req.headers.get('x-session-token') ?? undefined)
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { userId } = session
+
   try {
-    const monzoToken = await getMonzoAccessToken(db)
+    const monzoToken = await getMonzoAccessToken(db, userId)
     const accounts = await fetchAccounts(monzoToken)
-    const lookbackDays = parseInt(getConfig(db, 'lookback_days') ?? '30', 10)
+    const lookbackDays = parseInt(getConfig(db, 'lookback_days', userId) ?? '30', 10)
     const sinceDate = new Date(Date.now() - lookbackDays * 86_400_000).toISOString()
 
     const transactions = (

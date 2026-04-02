@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { google } from 'googleapis'
 import db from '@/lib/db'
 import { getGoogleAccessToken } from '@/lib/token-refresh'
+import { requireSession } from '@/lib/auth/session'
 import { extractHtmlBodyFromPayload } from '@/lib/gmail/extract'
 import { extractJsonLdOrder } from '@/lib/parsing/jsonld'
 import { parseEmailWithClaude } from '@/lib/parsing/claude'
@@ -164,6 +165,10 @@ async function resolveMessage(gmail: any, { urlId, threadHexId, searchQuery }: U
 }
 
 export async function POST(req: NextRequest) {
+  const session = requireSession(db, req.headers.get('x-session-token') ?? undefined)
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { userId } = session
+
   const { url } = await req.json() as { url: string }
   if (!url) return NextResponse.json({ error: 'url required' }, { status: 400 })
 
@@ -171,7 +176,7 @@ export async function POST(req: NextRequest) {
   if (!parts) return NextResponse.json({ error: 'Could not extract a message ID from this URL. Paste the URL directly from the Gmail address bar, or use a popout/print view URL.' }, { status: 400 })
 
   try {
-    const googleToken = await getGoogleAccessToken(db)
+    const googleToken = await getGoogleAccessToken(db, userId)
     const auth = new google.auth.OAuth2()
     auth.setCredentials({ access_token: googleToken })
     const gmail = google.gmail({ version: 'v1', auth })

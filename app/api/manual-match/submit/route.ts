@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 import { getMonzoAccessToken } from '@/lib/token-refresh'
+import { requireSession } from '@/lib/auth/session'
 import { submitReceipt } from '@/lib/monzo/receipts'
 import { upsertMatch } from '@/lib/db/queries/matches'
 import type { MatchCandidate, MonzoTransaction, ParsedReceipt, GmailMessage } from '@/lib/types'
 
 export async function POST(req: NextRequest) {
+  const session = requireSession(db, req.headers.get('x-session-token') ?? undefined)
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const { userId } = session
+
   const { transaction, receipt, messageId } = await req.json() as {
     transaction: MonzoTransaction
     receipt: ParsedReceipt
@@ -17,7 +22,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const monzoToken = await getMonzoAccessToken(db)
+    const monzoToken = await getMonzoAccessToken(db, userId)
 
     // Build a minimal GmailMessage stub — only messageId is needed for the external_id
     const email: GmailMessage = {
