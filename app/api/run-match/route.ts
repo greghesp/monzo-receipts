@@ -1,13 +1,26 @@
+// app/api/run-match/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { runMatch, type RunOptions } from '@/lib/runner'
-import { runState } from '@/lib/run-state'
+import { getRunState } from '@/lib/run-state'
+import { requireSession } from '@/lib/auth/session'
+import db from '@/lib/db'
 
 export async function POST(req: NextRequest) {
-  if (runState.isRunning) {
+  const session = requireSession(db, req.headers.get('x-session-token') ?? undefined)
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const state = getRunState(session.userId)
+  if (state.isRunning) {
     return NextResponse.json({ error: 'A run is already in progress' }, { status: 409 })
   }
 
-  const { accountIds, lookbackDays, onlyOnline } = await req.json() as { accountIds: string[] } & RunOptions
+  let body: { accountIds: string[] } & RunOptions
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+  }
+  const { accountIds, lookbackDays, onlyOnline } = body
   if (!accountIds?.length) {
     return NextResponse.json({ error: 'accountIds required' }, { status: 400 })
   }
@@ -16,18 +29,16 @@ export async function POST(req: NextRequest) {
   if (lookbackDays !== undefined) options.lookbackDays = lookbackDays
   if (onlyOnline !== undefined) options.onlyOnline = onlyOnline
 
-  runState.isRunning = true
-  runState.log = []
+  state.isRunning = true
+  state.log = []
 
-  // Fire and forget — run continues in the background regardless of this request
-  runMatch(accountIds, event => {
-    runState.log.push(event)
-    if (event.type === 'done' || event.type === 'error') {
-      runState.isRunning = false
-    }
+  const userId = session.userId
+  runMatch(userId, accountIds, event => {
+    state.log.push(event)
+    if (event.type === 'done' || event.type === 'error') state.isRunning = false
   }, options).catch(err => {
-    runState.log.push({ type: 'error', message: String(err) })
-    runState.isRunning = false
+    state.log.push({ type: 'error', message: String(err) })
+    state.isRunning = false
   })
 
   return NextResponse.json({ started: true })
