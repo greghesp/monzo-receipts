@@ -4,6 +4,7 @@ import type { RunStatus } from '../../types'
 
 export interface RunRow {
   id: number
+  user_id: number | null
   started_at: number
   completed_at: number | null
   status: RunStatus
@@ -25,8 +26,10 @@ export interface RunUpdate {
   error_message?: string | null
 }
 
-export function createRun(db: Database.Database): number {
-  const r = db.prepare('INSERT INTO runs (started_at, status) VALUES (?, ?)').run(Math.floor(Date.now() / 1000), 'running')
+export function createRun(db: Database.Database, userId?: number | null): number {
+  const r = db.prepare('INSERT INTO runs (started_at, status, user_id) VALUES (?, ?, ?)').run(
+    Math.floor(Date.now() / 1000), 'running', userId ?? null
+  )
   return r.lastInsertRowid as number
 }
 
@@ -38,17 +41,25 @@ export function updateRun(db: Database.Database, id: number, u: RunUpdate): void
       transactions_scanned = @transactions_scanned, matched = @matched,
       needs_review = @needs_review, no_match = @no_match, error_message = @error_message
     WHERE id = @id
-  `).run({ id, status: u.status, completed_at: Math.floor(Date.now() / 1000),
+  `).run({
+    id, status: u.status, completed_at: Math.floor(Date.now() / 1000),
     cursor_transaction_id: u.cursor_transaction_id ?? null,
     transactions_scanned: u.transactions_scanned ?? 0, matched: u.matched ?? 0,
     needs_review: u.needs_review ?? 0, no_match: u.no_match ?? 0,
-    error_message: u.error_message ?? null })
+    error_message: u.error_message ?? null,
+  })
 }
 
-export function getLastSuccessfulRun(db: Database.Database): RunRow | null {
-  return (db.prepare("SELECT * FROM runs WHERE status = 'done' ORDER BY id DESC LIMIT 1").get() as RunRow | undefined) ?? null
+export function getLastSuccessfulRun(db: Database.Database, userId?: number | null): RunRow | null {
+  const row = userId != null
+    ? db.prepare("SELECT * FROM runs WHERE status = 'done' AND user_id = ? ORDER BY id DESC LIMIT 1").get(userId)
+    : db.prepare("SELECT * FROM runs WHERE status = 'done' ORDER BY id DESC LIMIT 1").get()
+  return (row as RunRow | undefined) ?? null
 }
 
-export function getLastRun(db: Database.Database): RunRow | null {
-  return (db.prepare('SELECT * FROM runs ORDER BY id DESC LIMIT 1').get() as RunRow | undefined) ?? null
+export function getLastRun(db: Database.Database, userId?: number | null): RunRow | null {
+  const row = userId != null
+    ? db.prepare('SELECT * FROM runs WHERE user_id = ? ORDER BY id DESC LIMIT 1').get(userId)
+    : db.prepare('SELECT * FROM runs ORDER BY id DESC LIMIT 1').get()
+  return (row as RunRow | undefined) ?? null
 }

@@ -1,6 +1,12 @@
 import Database from 'better-sqlite3'
 import { createSchema } from '../db/schema'
 import { getToken, saveToken } from '../db/queries/tokens'
+import { getConfig, setConfig } from '../db/queries/config'
+
+function createUser(db: Database.Database, username: string, password: string): number {
+  db.prepare('INSERT INTO users (username, password_hash, created_at) VALUES (?, ?, ?)').run(username, password, Math.floor(Date.now() / 1000))
+  return (db.prepare('SELECT id FROM users WHERE username = ?').get(username) as { id: number }).id
+}
 
 const makeDb = () => {
   const db = new Database(':memory:')
@@ -96,5 +102,32 @@ describe('schema migration', () => {
     expect(getToken(db, 'monzo', user1Id)?.access_token).toBe('acc_a')
     expect(getToken(db, 'monzo', user2Id)?.access_token).toBe('acc_b')
     expect(getToken(db, 'monzo', null)).toBeNull()
+  })
+})
+
+describe('config queries with user_id scoping', () => {
+  it('setConfig/getConfig with no userId writes global row', () => {
+    const db = makeDb()
+    setConfig(db, 'monzo_client_id', 'cid')
+    expect(getConfig(db, 'monzo_client_id')).toBe('cid')
+  })
+
+  it('setConfig/getConfig with userId writes per-user row', () => {
+    const db = makeDb()
+    const uid = createUser(db, 'alice', 'pw')
+    setConfig(db, 'lookback_days', '30', uid)
+    expect(getConfig(db, 'lookback_days', uid)).toBe('30')
+    // Global read should not see it
+    expect(getConfig(db, 'lookback_days')).toBeNull()
+  })
+
+  it('per-user config does not bleed across users', () => {
+    const db = makeDb()
+    const uid1 = createUser(db, 'alice', 'pw')
+    const uid2 = createUser(db, 'bob', 'pw')
+    setConfig(db, 'lookback_days', '7', uid1)
+    setConfig(db, 'lookback_days', '30', uid2)
+    expect(getConfig(db, 'lookback_days', uid1)).toBe('7')
+    expect(getConfig(db, 'lookback_days', uid2)).toBe('30')
   })
 })
