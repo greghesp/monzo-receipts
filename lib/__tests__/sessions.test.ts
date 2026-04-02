@@ -2,7 +2,7 @@ import Database from 'better-sqlite3'
 import { createSchema } from '../db/schema'
 import { createUser } from '../db/queries/users'
 import {
-  createSessionRow, getSessionByToken, deleteSessionRow, touchSession,
+  createSessionRow, getSessionByToken, deleteSessionRow, touchSession, type SessionRow,
 } from '../db/queries/sessions'
 
 const makeDb = () => { const db = new Database(':memory:'); createSchema(db); return db }
@@ -29,15 +29,18 @@ describe('sessions queries', () => {
     expect(getSessionByToken(db, 'tok_del')).toBeNull()
   })
 
-  it('touchSession updates last_seen_at', async () => {
+  it('touchSession updates last_seen_at', () => {
     const db = makeDb()
     const uid = createUser(db, 'carol', 'pw')
     createSessionRow(db, 'tok_touch', uid)
-    const before = getSessionByToken(db, 'tok_touch')!.last_seen_at
-    await new Promise(r => setTimeout(r, 10))
+    const before = (getSessionByToken(db, 'tok_touch') as SessionRow).last_seen_at
+    // Advance mocked time by 2 seconds so floor(ms/1000) is strictly greater
+    const future = (before + 2) * 1000
+    jest.spyOn(Date, 'now').mockReturnValue(future)
     touchSession(db, 'tok_touch')
-    const after = getSessionByToken(db, 'tok_touch')!.last_seen_at
-    expect(after).toBeGreaterThanOrEqual(before)
+    jest.restoreAllMocks()
+    const after = (getSessionByToken(db, 'tok_touch') as SessionRow).last_seen_at
+    expect(after).toBeGreaterThan(before)
   })
 
   it('session is deleted when user is deleted (CASCADE)', () => {

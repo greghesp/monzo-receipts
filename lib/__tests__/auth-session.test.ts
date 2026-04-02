@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3'
 import { createSchema } from '../db/schema'
 import { createUser } from '../db/queries/users'
-import { createSessionRow } from '../db/queries/sessions'
+import { createSessionRow, getSessionByToken } from '../db/queries/sessions'
 import {
   hashPassword, verifyPassword, generateSessionToken, requireSession,
 } from '../auth/session'
@@ -39,13 +39,19 @@ describe('generateSessionToken', () => {
 })
 
 describe('requireSession', () => {
-  it('returns user for valid token', () => {
+  it('returns user for valid token and updates last_seen_at', () => {
     const db = makeDb()
     const uid = createUser(db, 'alice', 'pw')
     createSessionRow(db, 'valid_tok', uid)
+    const before = getSessionByToken(db, 'valid_tok')!.last_seen_at
+    const future = (before + 2) * 1000
+    jest.spyOn(Date, 'now').mockReturnValue(future)
     const session = requireSession(db, 'valid_tok')
+    jest.restoreAllMocks()
     expect(session?.userId).toBe(uid)
     expect(session?.username).toBe('alice')
+    const after = getSessionByToken(db, 'valid_tok')!.last_seen_at
+    expect(after).toBeGreaterThan(before)
   })
 
   it('returns null for unknown token', () => {

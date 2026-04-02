@@ -26,10 +26,12 @@ describe('users queries', () => {
 
   it('getUserByUsername returns the created user', () => {
     const db = makeDb()
-    createUser(db, 'alice', 'hashed_pw')
+    const id = createUser(db, 'alice', 'hashed_pw')
     const user = getUserByUsername(db, 'alice')
     expect(user?.username).toBe('alice')
     expect(user?.password_hash).toBe('hashed_pw')
+    expect(user?.id).toBe(id)
+    expect(user?.created_at).toBeGreaterThan(0)
   })
 
   it('getUserByUsername returns null for unknown user', () => {

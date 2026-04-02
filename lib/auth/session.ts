@@ -43,12 +43,13 @@ export function setSessionCookie(res: NextResponse, token: string): void {
     httpOnly: true,
     sameSite: 'lax',
     path: '/',
+    secure: process.env.NODE_ENV === 'production',
     // No maxAge / expires → session cookie that persists until logout
   })
 }
 
 export function clearSessionCookie(res: NextResponse): void {
-  res.cookies.set(COOKIE_NAME, '', { httpOnly: true, maxAge: 0, path: '/' })
+  res.cookies.set(COOKIE_NAME, '', { httpOnly: true, sameSite: 'lax', path: '/', maxAge: 0 })
 }
 
 export const SESSION_COOKIE_NAME = COOKIE_NAME
