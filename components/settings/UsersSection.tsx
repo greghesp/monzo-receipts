@@ -13,12 +13,28 @@ export default function UsersSection({ users: initialUsers }: { users: User[] })
   const router = useRouter()
   const [users, setUsers] = useState(initialUsers)
   const [removing, setRemoving] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   async function handleRemove(id: number) {
     setRemoving(id)
-    await fetch(`/api/users/${id}`, { method: 'DELETE' })
+    setError(null)
+    const previous = users
+    // Optimistic update
     setUsers(u => u.filter(x => x.id !== id))
-    setRemoving(null)
+    try {
+      const res = await fetch(`/api/users/${id}`, { method: 'DELETE' })
+      if (!res.ok) {
+        // Rollback
+        setUsers(previous)
+        const data = await res.json().catch(() => ({}))
+        setError((data as { error?: string }).error ?? 'Failed to remove user')
+      }
+    } catch {
+      setUsers(previous)
+      setError('Something went wrong')
+    } finally {
+      setRemoving(null)
+    }
   }
 
   return (
@@ -29,7 +45,7 @@ export default function UsersSection({ users: initialUsers }: { users: User[] })
           <div key={user.id} className="flex items-center justify-between bg-slate-900 rounded-lg px-3 py-2">
             <div className="flex items-center gap-2">
               <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-xs font-semibold text-slate-300">
-                {user.username[0].toUpperCase()}
+                {user.username[0]?.toUpperCase() ?? '?'}
               </div>
               <span className="text-sm text-white">{user.username}</span>
               {user.isCurrentUser && (
@@ -48,6 +64,7 @@ export default function UsersSection({ users: initialUsers }: { users: User[] })
           </div>
         ))}
       </div>
+      {error && <p className="text-xs text-red-400">{error}</p>}
       <button
         onClick={() => router.push('/auth/register?mode=add')}
         className="text-xs text-slate-400 hover:text-slate-200 border border-dashed border-slate-600 rounded-lg px-3 py-2 w-full text-left"

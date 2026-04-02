@@ -71,7 +71,7 @@ export default async function DashboardPage() {
             <ConnectionBadgesWrapper monzoConnected={monzoConnected} googleConnected={googleConnected} />
             <div className="flex items-center gap-2 pl-3 border-l border-slate-800">
               <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-xs font-semibold text-slate-300">
-                {username[0].toUpperCase()}
+                {username[0]?.toUpperCase() ?? '?'}
               </div>
               <span className="text-xs text-slate-400">{username}</span>
               <form action="/api/auth/logout" method="POST">
