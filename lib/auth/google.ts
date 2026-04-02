@@ -1,13 +1,16 @@
 import { google } from 'googleapis'
 
-const REDIRECT_URI = 'http://localhost:3000/api/auth/google/callback'
 const SCOPES = [
   'https://www.googleapis.com/auth/gmail.readonly',
   'https://www.googleapis.com/auth/userinfo.email',
 ]
 
+function getRedirectUri(): string {
+  return `${process.env.BASE_URL ?? 'http://localhost:3000'}/api/auth/google/callback`
+}
+
 export function getGoogleOAuthClient(clientId: string, clientSecret: string) {
-  return new google.auth.OAuth2(clientId, clientSecret, REDIRECT_URI)
+  return new google.auth.OAuth2(clientId, clientSecret, getRedirectUri())
 }
 
 export function buildGoogleAuthUrl(clientId: string, clientSecret: string): string {
