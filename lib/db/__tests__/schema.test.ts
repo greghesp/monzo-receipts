@@ -3,7 +3,7 @@ import Database from 'better-sqlite3'
 import { createSchema } from '../schema'
 
 describe('createSchema', () => {
-  it('creates all four tables', () => {
+  it('creates all six tables', () => {
     const db = new Database(':memory:')
     createSchema(db)
     const tables = (db

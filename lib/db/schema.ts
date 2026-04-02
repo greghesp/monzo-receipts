@@ -47,17 +47,16 @@ export function createSchema(db: Database.Database): void {
   `)
 
   // ── Idempotent column additions (matches table) ───────────────────────────
-  const tryAlter = (sql: string) => {
-    try {
-      db.exec(sql)
-    } catch (err) {
-      if (!(err instanceof Error && err.message.includes('duplicate column name'))) throw err
-    }
-  }
+  // Check existing columns via PRAGMA to avoid ALTER TABLE errors on re-runs.
+  const matchesCols = (db.prepare('PRAGMA table_info(matches)').all() as { name: string }[])
+    .map(c => c.name)
 
-  tryAlter('ALTER TABLE matches ADD COLUMN transaction_date TEXT')
-  tryAlter('ALTER TABLE matches ADD COLUMN merchant_online INTEGER NOT NULL DEFAULT 0')
-  tryAlter('ALTER TABLE matches ADD COLUMN account_id TEXT')
+  if (!matchesCols.includes('transaction_date'))
+    db.exec('ALTER TABLE matches ADD COLUMN transaction_date TEXT')
+  if (!matchesCols.includes('merchant_online'))
+    db.exec('ALTER TABLE matches ADD COLUMN merchant_online INTEGER NOT NULL DEFAULT 0')
+  if (!matchesCols.includes('account_id'))
+    db.exec('ALTER TABLE matches ADD COLUMN account_id TEXT')
 
   // ── Table-rebuild migrations for tokens and config ───────────────────────
   // SQLite cannot change PRIMARY KEY via ALTER TABLE, so we use the

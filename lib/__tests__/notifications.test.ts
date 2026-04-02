@@ -1,3 +1,6 @@
+// Mock the DB singleton so importing notifications.ts does not open the real database
+jest.mock('../db', () => ({ default: {} }))
+
 import { buildAppriseArgs } from '../notifications'
 
 describe('buildAppriseArgs', () => {
