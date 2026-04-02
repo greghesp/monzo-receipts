@@ -36,7 +36,7 @@ export default function SetupPage() {
         <p className="text-slate-400 text-sm mb-8">
           Enter your Monzo OAuth client credentials. Create a client at{' '}
           <a href="https://developers.monzo.com" target="_blank" className="text-sky-400 underline">developers.monzo.com</a>{' '}
-          with redirect URL <code className="text-slate-300">http://localhost:3000/api/auth/monzo/callback</code> and type <strong>Confidential</strong>.
+          with redirect URL <code className="text-slate-300">{'{BASE_URL}'}/api/auth/monzo/callback</code> (replacing <code className="text-slate-300">{'{BASE_URL}'}</code> with your app&apos;s address) and type <strong>Confidential</strong>.
         </p>
         <form onSubmit={handleSubmit} className="space-y-4">
           {[
