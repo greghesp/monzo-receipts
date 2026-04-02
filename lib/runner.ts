@@ -156,7 +156,10 @@ export async function runMatch(
         } else {
           console.log(`[runner]   → No JSON-LD, trying AI on email body...`)
           const ai = await parseEmailWithClaude(email.subject, email.html, email.from, email.date)
-          if (ai) {
+          // AI may return total=0 when the email body has no financial data (e.g. "see attached PDF").
+          // Treat zero-total the same as null — try the PDF attachment as fallback.
+          const aiUsable = ai && ai.total > 0
+          if (aiUsable) {
             console.log(`[runner]   → AI parsed: merchant="${ai.merchant}" total=${ai.total}p date=${ai.date}`)
             emailsWithReceipts.push({ email, receipt: ai })
           } else {
@@ -164,24 +167,24 @@ export async function runMatch(
             const pdfs = email.attachments.filter(a => a.mimeType === 'application/pdf')
             const bestPdf = pickBestAttachment(pdfs)
             if (bestPdf) {
-              console.log(`[runner]   → Trying PDF attachment: "${bestPdf.filename}"`)
+              console.log(`[runner]   → ${ai ? 'AI returned zero total' : 'AI returned null'} — trying PDF attachment: "${bestPdf.filename}"`)
               try {
                 const auth = new google.auth.OAuth2()
                 auth.setCredentials({ access_token: accessToken })
                 const gmail = google.gmail({ version: 'v1', auth })
                 const pdfBuffer = await downloadGmailAttachment(gmail, msgId, bestPdf.attachmentId)
                 const pdfReceipt = await parseReceiptFromPdf(pdfBuffer, bestPdf.filename)
-                if (pdfReceipt) {
+                if (pdfReceipt && pdfReceipt.total > 0) {
                   console.log(`[runner]   → PDF parsed: merchant="${pdfReceipt.merchant}" total=${pdfReceipt.total}p date=${pdfReceipt.date}`)
                   emailsWithReceipts.push({ email, receipt: pdfReceipt })
                 } else {
-                  console.log(`[runner]   → PDF parse returned null — email will not be matched`)
+                  console.log(`[runner]   → PDF parse returned null/zero — email will not be matched`)
                 }
               } catch (e) {
                 console.log(`[runner]   → PDF download/parse error: ${e}`)
               }
             } else {
-              console.log(`[runner]   → AI returned null, no PDF attachments — email will not be matched`)
+              console.log(`[runner]   → ${ai ? 'AI returned zero total' : 'AI returned null'}, no PDF attachments — email will not be matched`)
             }
           }
         }

@@ -198,14 +198,18 @@ export async function POST(req: NextRequest) {
           extractJsonLdOrder(email.html, email.date) ??
           await parseEmailWithClaude(email.subject, email.html, email.from, email.date)
 
-        // If HTML parsing failed, try any attached PDF invoice
-        if (!receipt) {
+        // If HTML parsing failed or returned zero total (email body had no financial data),
+        // try any attached PDF invoice — Claude may have set total=0 per the prompt rules.
+        const htmlReceiptUseless = !receipt || receipt.total === 0
+        if (htmlReceiptUseless) {
           const pdfs = email.attachments.filter(a => a.mimeType === 'application/pdf')
           const bestPdf = pickBestAttachment(pdfs)
           if (bestPdf) {
             console.log(`[manual-match] Trying PDF attachment: "${bestPdf.filename}"`)
             const pdfBuffer = await downloadGmailAttachment(gmail, messageId, bestPdf.attachmentId)
-            receipt = await parseReceiptFromPdf(pdfBuffer, bestPdf.filename)
+            const pdfReceipt = await parseReceiptFromPdf(pdfBuffer, bestPdf.filename)
+            // Only upgrade to PDF result if it has a real total
+            if (pdfReceipt && pdfReceipt.total > 0) receipt = pdfReceipt
           }
         }
 
