@@ -55,8 +55,9 @@ export function restartSchedulerForUser(userId: number): void {
       })
     } catch (e) {
       state.log.push({ type: 'error', message: String(e) })
-      state.isRunning = false
       console.error(`[scheduler] User ${userId} run failed:`, e)
+    } finally {
+      state.isRunning = false
     }
   })
 

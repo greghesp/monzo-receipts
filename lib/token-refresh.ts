@@ -15,8 +15,9 @@ export async function getMonzoAccessToken(db: Database.Database, userId: number)
 export async function forceRefreshMonzoToken(db: Database.Database, userId: number): Promise<string> {
   const token = getToken(db, 'monzo', userId)
   if (!token) throw new Error('Monzo not connected')
-  const clientId = getConfig(db, 'monzo_client_id')!       // global key — no userId
-  const clientSecret = getConfig(db, 'monzo_client_secret')! // global key — no userId
+  const clientId = getConfig(db, 'monzo_client_id')
+  const clientSecret = getConfig(db, 'monzo_client_secret')
+  if (!clientId || !clientSecret) throw new Error('Monzo OAuth credentials not configured')
   const fresh = await refreshMonzoToken(token.refresh_token, clientId, clientSecret)
   saveToken(db, {
     provider: 'monzo',
