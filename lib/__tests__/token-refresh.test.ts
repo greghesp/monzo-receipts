@@ -118,4 +118,29 @@ describe('getAllGoogleAccessTokens', () => {
     const result = await getAllGoogleAccessTokens(db, uid)
     expect(result[0].accessToken).toBe('refreshed_at')
   })
+
+  it('skips an account whose token refresh fails and returns the others', async () => {
+    const db = makeDb()
+    createUser(db, 'u', 'pw')
+    const uid = 1
+    const nearExpiry = Math.floor(Date.now() / 1000) + 60
+
+    // First account: near expiry (will try to refresh — mock returns refreshed_at)
+    saveToken(db, { provider: 'google', email: 'good@gmail.com', access_token: 'old_at', refresh_token: 'rt_good', expires_at: nearExpiry }, uid)
+    // Second account: valid token (won't need refresh)
+    saveToken(db, { provider: 'google', email: 'valid@gmail.com', access_token: 'valid_at', refresh_token: 'rt_valid', expires_at: future() }, uid)
+
+    // Make the mock throw for the first account's refresh
+    const { getGoogleOAuthClient } = await import('../auth/google')
+    ;(getGoogleOAuthClient as jest.Mock).mockReturnValueOnce({
+      setCredentials: jest.fn(),
+      refreshAccessToken: jest.fn().mockRejectedValue(new Error('refresh failed')),
+    })
+
+    const result = await getAllGoogleAccessTokens(db, uid)
+    // Only the valid account should be returned
+    expect(result).toHaveLength(1)
+    expect(result[0].email).toBe('valid@gmail.com')
+    expect(result[0].accessToken).toBe('valid_at')
+  })
 })

@@ -40,11 +40,10 @@ export async function getAllGoogleAccessTokens(
   const tokens = getTokens(db, 'google', userId)
   if (tokens.length === 0) return []
 
-  return Promise.all(tokens.map(async token => {
+  const results = await Promise.allSettled(tokens.map(async token => {
     if (!isTokenExpiredOrExpiringSoon(token)) {
       return { email: token.email, accessToken: token.access_token }
     }
-    // Refresh this account's token
     const client = getGoogleOAuthClient(
       process.env.GOOGLE_CLIENT_ID!,
       process.env.GOOGLE_CLIENT_SECRET!
@@ -62,6 +61,13 @@ export async function getAllGoogleAccessTokens(
     saveToken(db, refreshed, userId)
     return { email: token.email, accessToken: credentials.access_token }
   }))
+
+  // Skip failed accounts (log them) rather than throwing for all
+  return results.flatMap(r => {
+    if (r.status === 'fulfilled') return [r.value]
+    console.error(`[getAllGoogleAccessTokens] Token refresh failed for one account:`, r.reason)
+    return []
+  })
 }
 
 /** For cases where you have a specific email to look up (e.g. manual-match per-account retry). */
