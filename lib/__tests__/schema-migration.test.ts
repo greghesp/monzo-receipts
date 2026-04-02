@@ -94,6 +94,14 @@ describe('schema migration', () => {
     expect(cols.map(c => c.name)).toContain('email')
   })
 
+  it('tokens table has email in primary key after migration', () => {
+    const db = makeDb()
+    const pkCols = (db.prepare("PRAGMA table_info(tokens)").all() as { name: string; pk: number }[])
+      .filter(c => c.pk > 0)
+      .map(c => c.name)
+    expect(pkCols).toContain('email')
+  })
+
   it('existing tokens get email = \'\' during migration', () => {
     const db = new Database(':memory:')
     // Simulate pre-existing tokens table without email

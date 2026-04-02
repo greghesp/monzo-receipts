@@ -61,12 +61,16 @@ export function createSchema(db: Database.Database): void {
   // ── Table-rebuild migrations for tokens and config ───────────────────────
   // SQLite cannot change PRIMARY KEY via ALTER TABLE, so we use the
   // create-new / copy / drop-old / rename pattern. Both migrations are
-  // idempotent: they check whether the user_id column already exists first.
+  // idempotent: the tokens migration checks for both the
+  // user_id and email columns; the config migration checks for user_id.
 
   // ── Table-rebuild migration for tokens ───────────────────────────────────
   // Target schema: PRIMARY KEY (user_id, provider, email)
   // email = '' for Monzo (single per user); email = Gmail address for Google accounts
 
+  // PRAGMA table_info returns [] for a non-existent table — fresh DBs will
+  // have tokensNeedsRebuild = true and go through the rebuild path which
+  // starts with CREATE TABLE IF NOT EXISTS.
   const tokensCols = (db.prepare("PRAGMA table_info(tokens)").all() as { name: string }[])
     .map(c => c.name)
   const tokensNeedsRebuild = !tokensCols.includes('user_id') || !tokensCols.includes('email')
