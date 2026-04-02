@@ -2,7 +2,7 @@ import db from './db'
 import { getConfig } from './db/queries/config'
 import { getLastSuccessfulRun, createRun, updateRun } from './db/queries/runs'
 import { getMatchByTransactionId, upsertMatch } from './db/queries/matches'
-import { getMonzoAccessToken, getGoogleAccessToken, forceRefreshMonzoToken } from './token-refresh'
+import { getMonzoAccessToken, getAllGoogleAccessTokens, forceRefreshMonzoToken } from './token-refresh'
 import { fetchTransactionsSince, pingWhoAmI } from './monzo/transactions'
 import { searchReceipts, readEmail } from './gmail/search'
 import { extractJsonLdOrder } from './parsing/jsonld'
@@ -43,7 +43,6 @@ export async function runMatch(
 
   try {
     let monzoToken = await getMonzoAccessToken(db, userId)
-    const googleToken = await getGoogleAccessToken(db, userId)
 
     // Validate the token is genuinely accepted by Monzo before starting the run.
     // If it fails whoami, force-refresh now rather than discovering it mid-run.
@@ -113,15 +112,35 @@ export async function runMatch(
     const earliest = newTransactions.reduce((min, tx) => tx.created < min ? tx.created : min, newTransactions[0].created)
     const gmailQuery = buildGmailQuery(earliest)
     console.log(`[runner] Gmail search query: ${gmailQuery}`)
-    const messageIds = await searchReceipts(googleToken, earliest)
-    console.log(`[runner] Gmail returned ${messageIds.length} message(s)`)
 
-    emit({ type: 'scanning', emailsFound: messageIds.length, emailsProcessed: 0 })
+    const googleAccounts = await getAllGoogleAccessTokens(db, userId)
+    if (googleAccounts.length === 0) throw new Error('Gmail not connected')
+
+    // Search all connected Gmail inboxes; pair each message ID with its source token
+    type MessageRef = { id: string; accessToken: string }
+    const allMessageRefs: MessageRef[] = (
+      await Promise.all(
+        googleAccounts.map(async ({ email: gmailEmail, accessToken }) => {
+          const ids = await searchReceipts(accessToken, earliest)
+          console.log(`[runner] Gmail ${gmailEmail}: ${ids.length} message(s)`)
+          return ids.map(id => ({ id, accessToken }))
+        })
+      )
+    ).flat()
+
+    // Deduplicate by message ID (safety — same message shouldn't appear in two accounts)
+    const seen = new Set<string>()
+    const messageRefs: MessageRef[] = []
+    for (const ref of allMessageRefs) {
+      if (!seen.has(ref.id)) { seen.add(ref.id); messageRefs.push(ref) }
+    }
+
+    emit({ type: 'scanning', emailsFound: messageRefs.length, emailsProcessed: 0 })
     const emailsWithReceipts: { email: GmailMessage; receipt: ParsedReceipt }[] = []
-    for (let i = 0; i < messageIds.length; i++) {
-      const msgId = messageIds[i]
+    for (let i = 0; i < messageRefs.length; i++) {
+      const { id: msgId, accessToken } = messageRefs[i]
       try {
-        const email = await readEmail(googleToken, msgId)
+        const email = await readEmail(accessToken, msgId)
         console.log(`[runner] Email: "${email.subject}" from ${email.from} date=${email.date}`)
         const jsonLd = extractJsonLdOrder(email.html, email.date)
         if (jsonLd) {
@@ -140,7 +159,7 @@ export async function runMatch(
       } catch (e) {
         console.log(`[runner]   → Error reading email ${msgId}: ${e}`)
       }
-      emit({ type: 'scanning', emailsFound: messageIds.length, emailsProcessed: i + 1 })
+      emit({ type: 'scanning', emailsFound: messageRefs.length, emailsProcessed: i + 1 })
     }
 
     console.log(`[runner] ${emailsWithReceipts.length} email(s) with parsed receipts`)
