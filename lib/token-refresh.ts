@@ -37,7 +37,9 @@ export async function getAllGoogleAccessTokens(
   db: Database.Database,
   userId: number
 ): Promise<{ email: string; accessToken: string }[]> {
-  const tokens = getTokens(db, 'google', userId)
+  // Filter out empty-email Google tokens — they are orphaned migration artifacts
+  // from accounts connected before the multi-Gmail migration and should not be used.
+  const tokens = getTokens(db, 'google', userId).filter(t => t.email !== '')
   if (tokens.length === 0) return []
 
   const results = await Promise.allSettled(tokens.map(async token => {

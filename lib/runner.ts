@@ -116,17 +116,21 @@ export async function runMatch(
     const googleAccounts = await getAllGoogleAccessTokens(db, userId)
     if (googleAccounts.length === 0) throw new Error('Gmail not connected')
 
-    // Search all connected Gmail inboxes; pair each message ID with its source token
+    // Search all connected Gmail inboxes; pair each message ID with its source token.
+    // Use allSettled so a single bad token doesn't abort the entire run.
     type MessageRef = { id: string; accessToken: string }
-    const allMessageRefs: MessageRef[] = (
-      await Promise.all(
-        googleAccounts.map(async ({ email: gmailEmail, accessToken }) => {
-          const ids = await searchReceipts(accessToken, earliest)
-          console.log(`[runner] Gmail ${gmailEmail}: ${ids.length} message(s)`)
-          return ids.map(id => ({ id, accessToken }))
-        })
-      )
-    ).flat()
+    const searchResults = await Promise.allSettled(
+      googleAccounts.map(async ({ email: gmailEmail, accessToken }) => {
+        const ids = await searchReceipts(accessToken, earliest)
+        console.log(`[runner] Gmail ${gmailEmail}: ${ids.length} message(s)`)
+        return ids.map(id => ({ id, accessToken }))
+      })
+    )
+    const allMessageRefs: MessageRef[] = searchResults.flatMap(r => {
+      if (r.status === 'fulfilled') return r.value
+      console.error(`[runner] Gmail search failed for one account — skipping:`, r.reason)
+      return []
+    })
 
     // Deduplicate by message ID (safety — same message shouldn't appear in two accounts)
     const seen = new Set<string>()
