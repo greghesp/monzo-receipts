@@ -29,6 +29,7 @@ export async function GET(req: NextRequest) {
     only_online_transactions: getConfig(db, 'only_online_transactions', uid) === 'true',
     monzo_connected: !!monzoToken,
     google_connected: googleTokens.length > 0,
+    google_accounts: googleTokens.map(t => t.email),
   })
 }
 

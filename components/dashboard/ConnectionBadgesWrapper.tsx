@@ -1,13 +1,17 @@
 'use client'
 import ConnectionBadge from '@/components/ConnectionBadge'
 
-interface Props { monzoConnected: boolean; googleConnected: boolean }
+interface Props { monzoConnected: boolean; googleAccountCount: number }
 
-export default function ConnectionBadgesWrapper({ monzoConnected, googleConnected }: Props) {
+export default function ConnectionBadgesWrapper({ monzoConnected, googleAccountCount }: Props) {
   return (
     <>
       <ConnectionBadge label="Monzo" connected={monzoConnected} onReconnect={() => { window.location.href = '/api/auth/monzo' }} />
-      <ConnectionBadge label="Gmail" connected={googleConnected} onReconnect={() => { window.location.href = '/api/auth/google' }} />
+      <ConnectionBadge
+        label={googleAccountCount > 1 ? `Gmail (${googleAccountCount})` : 'Gmail'}
+        connected={googleAccountCount > 0}
+        onReconnect={() => { window.location.href = '/settings' }}
+      />
     </>
   )
 }

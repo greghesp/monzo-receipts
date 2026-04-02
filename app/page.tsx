@@ -26,8 +26,7 @@ export default async function DashboardPage() {
   const { userId, username } = session
 
   const monzoConnected = !!getToken(db, 'monzo', userId)
-  const googleTokens = getTokens(db, 'google', userId)
-  const googleConnected = googleTokens.length > 0
+  const googleAccountCount = getTokens(db, 'google', userId).length
   const stats = getMatchStats(db)
   const lastRun = getLastRun(db, userId)
   const pendingReviews = getPendingReviewMatches(db)
@@ -69,7 +68,7 @@ export default async function DashboardPage() {
             {lastRun && <p className="text-xs text-slate-500 mt-0.5">Last synced: {new Date(lastRun.started_at * 1000).toLocaleString('en-GB')} · cursor saved</p>}
           </div>
           <div className="flex items-center gap-2">
-            <ConnectionBadgesWrapper monzoConnected={monzoConnected} googleConnected={googleConnected} />
+            <ConnectionBadgesWrapper monzoConnected={monzoConnected} googleAccountCount={googleAccountCount} />
             <div className="flex items-center gap-2 pl-3 border-l border-slate-800">
               <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-xs font-semibold text-slate-300">
                 {username[0]?.toUpperCase() ?? '?'}

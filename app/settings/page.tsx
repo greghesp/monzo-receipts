@@ -22,7 +22,8 @@ export default async function SettingsPage() {
   const { userId } = session
 
   const monzoConnected = !!getToken(db, 'monzo', userId)
-  const googleConnected = getTokens(db, 'google', userId).length > 0
+  const googleTokens = getTokens(db, 'google', userId)
+  const googleAccounts = googleTokens.map(t => t.email)
   const scheduleEnabled = getConfig(db, 'schedule_enabled', userId) === 'true'
   const scheduleCron = getConfig(db, 'schedule_cron', userId) ?? '0 20 * * *'
   const savedAccounts = getConfigJson<string[]>(db, 'schedule_accounts', userId) ?? []
@@ -54,7 +55,7 @@ export default async function SettingsPage() {
           <Link href="/" className="text-slate-500 hover:text-slate-300 text-sm">← Dashboard</Link>
           <h1 className="text-lg font-bold text-white">Settings</h1>
         </div>
-        <ConnectionsSection monzoConnected={monzoConnected} googleConnected={googleConnected} />
+        <ConnectionsSection monzoConnected={monzoConnected} googleAccounts={googleAccounts} />
         <ScheduleSection enabled={scheduleEnabled} cronExpr={scheduleCron} accounts={accounts} selectedAccounts={savedAccounts} lookbackDays={lookbackDays} onlyOnline={onlyOnline} />
         <NotificationsSection appriseUrls={appriseUrls} />
         <UsersSection users={allUsers} />
