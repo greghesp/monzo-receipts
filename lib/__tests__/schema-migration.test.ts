@@ -88,6 +88,32 @@ describe('schema migration', () => {
     expect(pkCols).toEqual(expect.arrayContaining(['user_id', 'provider']))
   })
 
+  it('tokens table has email column after migration', () => {
+    const db = makeDb()
+    const cols = db.prepare("PRAGMA table_info(tokens)").all() as { name: string }[]
+    expect(cols.map(c => c.name)).toContain('email')
+  })
+
+  it('existing tokens get email = \'\' during migration', () => {
+    const db = new Database(':memory:')
+    // Simulate pre-existing tokens table without email
+    db.exec(`
+      CREATE TABLE users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, created_at INTEGER NOT NULL);
+      CREATE TABLE tokens (
+        user_id  INTEGER,
+        provider TEXT NOT NULL,
+        access_token  TEXT NOT NULL,
+        refresh_token TEXT NOT NULL,
+        expires_at    INTEGER NOT NULL,
+        PRIMARY KEY (user_id, provider)
+      );
+      INSERT INTO tokens VALUES (NULL, 'monzo', 'at1', 'rt1', 9999999999);
+    `)
+    createSchema(db)
+    const row = db.prepare("SELECT email FROM tokens WHERE provider = 'monzo'").get() as { email: string }
+    expect(row.email).toBe('')
+  })
+
   it('getToken and saveToken scope correctly to user_id', () => {
     const db = makeDb()
     const tokenA = { provider: 'monzo' as const, access_token: 'acc_a', refresh_token: 'ref_a', expires_at: 9999999999 }

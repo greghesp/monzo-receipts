@@ -63,12 +63,17 @@ export function createSchema(db: Database.Database): void {
   // create-new / copy / drop-old / rename pattern. Both migrations are
   // idempotent: they check whether the user_id column already exists first.
 
-  const tokensHasUserId = (db.prepare("PRAGMA table_info(tokens)").all() as { name: string }[])
-    .some(c => c.name === 'user_id')
+  // ── Table-rebuild migration for tokens ───────────────────────────────────
+  // Target schema: PRIMARY KEY (user_id, provider, email)
+  // email = '' for Monzo (single per user); email = Gmail address for Google accounts
 
-  if (!tokensHasUserId) {
-    // tokens table may not exist yet on a fresh install
+  const tokensCols = (db.prepare("PRAGMA table_info(tokens)").all() as { name: string }[])
+    .map(c => c.name)
+  const tokensNeedsRebuild = !tokensCols.includes('user_id') || !tokensCols.includes('email')
+
+  if (tokensNeedsRebuild) {
     db.transaction(() => {
+      // If tokens table doesn't exist at all, create a minimal placeholder so the copy works
       db.exec(`
         CREATE TABLE IF NOT EXISTS tokens (
           provider      TEXT PRIMARY KEY,
@@ -77,30 +82,47 @@ export function createSchema(db: Database.Database): void {
           expires_at    INTEGER NOT NULL
         );
       `)
+      // Detect whether user_id column exists in whatever version we have
+      const currentCols = (db.prepare("PRAGMA table_info(tokens)").all() as { name: string }[])
+        .map(c => c.name)
+      const hasUserId = currentCols.includes('user_id')
+
       db.exec(`
         CREATE TABLE tokens_new (
           user_id       INTEGER REFERENCES users(id) ON DELETE CASCADE,
           provider      TEXT NOT NULL,
+          email         TEXT NOT NULL DEFAULT '',
           access_token  TEXT NOT NULL,
           refresh_token TEXT NOT NULL,
           expires_at    INTEGER NOT NULL,
-          PRIMARY KEY (user_id, provider)
+          PRIMARY KEY (user_id, provider, email)
         );
       `)
-      db.exec(`INSERT INTO tokens_new SELECT NULL, provider, access_token, refresh_token, expires_at FROM tokens;`)
+      if (hasUserId) {
+        // Intermediate schema (user_id exists, email does not) — copy with email = ''
+        db.exec(`INSERT INTO tokens_new
+          SELECT user_id, provider, '', access_token, refresh_token, expires_at
+          FROM tokens;`)
+      } else {
+        // Legacy schema (no user_id) — copy with user_id = NULL and email = ''
+        db.exec(`INSERT INTO tokens_new
+          SELECT NULL, provider, '', access_token, refresh_token, expires_at
+          FROM tokens;`)
+      }
       db.exec(`DROP TABLE tokens;`)
       db.exec(`ALTER TABLE tokens_new RENAME TO tokens;`)
     })()
   } else {
-    // user_id column already exists (post-migration or fresh install) — just ensure table exists
+    // Already migrated — just ensure table exists
     db.exec(`
       CREATE TABLE IF NOT EXISTS tokens (
         user_id       INTEGER REFERENCES users(id) ON DELETE CASCADE,
         provider      TEXT NOT NULL,
+        email         TEXT NOT NULL DEFAULT '',
         access_token  TEXT NOT NULL,
         refresh_token TEXT NOT NULL,
         expires_at    INTEGER NOT NULL,
-        PRIMARY KEY (user_id, provider)
+        PRIMARY KEY (user_id, provider, email)
       );
     `)
   }
