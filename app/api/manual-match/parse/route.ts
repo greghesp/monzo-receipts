@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { google } from 'googleapis'
 import db from '@/lib/db'
-import { getGoogleAccessToken } from '@/lib/token-refresh'
+import { getAllGoogleAccessTokens } from '@/lib/token-refresh'
 import { requireSession } from '@/lib/auth/session'
 import { extractHtmlBodyFromPayload } from '@/lib/gmail/extract'
 import { extractJsonLdOrder } from '@/lib/parsing/jsonld'
@@ -176,19 +176,32 @@ export async function POST(req: NextRequest) {
   if (!parts) return NextResponse.json({ error: 'Could not extract a message ID from this URL. Paste the URL directly from the Gmail address bar, or use a popout/print view URL.' }, { status: 400 })
 
   try {
-    const googleToken = await getGoogleAccessToken(db, userId)
-    const auth = new google.auth.OAuth2()
-    auth.setCredentials({ access_token: googleToken })
-    const gmail = google.gmail({ version: 'v1', auth })
+    const googleAccounts = await getAllGoogleAccessTokens(db, userId)
+    if (googleAccounts.length === 0) throw new Error('Gmail not connected')
 
-    const { msgData, messageId } = await resolveMessage(gmail, parts)
-    const email = buildGmailMessage(msgData, messageId)
+    // Try each connected Gmail account until the message is found
+    // (a message ID is account-specific, so only one account will succeed)
+    let lastError: unknown
+    for (const { accessToken } of googleAccounts) {
+      try {
+        const auth = new google.auth.OAuth2()
+        auth.setCredentials({ access_token: accessToken })
+        const gmail = google.gmail({ version: 'v1', auth })
 
-    const receipt =
-      extractJsonLdOrder(email.html, email.date) ??
-      await parseEmailWithClaude(email.subject, email.html, email.from, email.date)
+        const { msgData, messageId } = await resolveMessage(gmail, parts)
+        const email = buildGmailMessage(msgData, messageId)
 
-    return NextResponse.json({ email, receipt, messageId })
+        const receipt =
+          extractJsonLdOrder(email.html, email.date) ??
+          await parseEmailWithClaude(email.subject, email.html, email.from, email.date)
+
+        return NextResponse.json({ email, receipt, messageId })
+      } catch (e) {
+        lastError = e
+        // Continue to next account
+      }
+    }
+    throw lastError
   } catch (e) {
     return NextResponse.json({ error: String(e) }, { status: 500 })
   }

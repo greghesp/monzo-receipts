@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { google } from 'googleapis'
 import db from '@/lib/db'
-import { getMonzoAccessToken, getGoogleAccessToken } from '@/lib/token-refresh'
+import { getMonzoAccessToken, getAllGoogleAccessTokens } from '@/lib/token-refresh'
 import { requireSession } from '@/lib/auth/session'
 import { extractHtmlBodyFromPayload } from '@/lib/gmail/extract'
 import { findAttachments, pickBestAttachment, downloadGmailAttachment } from '@/lib/gmail/attachments'
@@ -40,55 +40,70 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const [monzoToken, googleToken] = await Promise.all([
+    const [monzoToken, googleAccounts] = await Promise.all([
       getMonzoAccessToken(db, userId),
-      getGoogleAccessToken(db, userId),
+      getAllGoogleAccessTokens(db, userId),
     ])
+    if (googleAccounts.length === 0) throw new Error('Gmail not connected')
 
-    // Set up Gmail client
-    const auth = new google.auth.OAuth2()
-    auth.setCredentials({ access_token: googleToken })
-    const gmail = google.gmail({ version: 'v1', auth })
+    // Try each Gmail account to fetch the email — message belongs to exactly one account
+    let gmailResult: { fileData: Buffer; fileName: string; fileType: string; source: 'attachment' | 'pdf' } | null = null
+    let lastGmailError: unknown
+    for (const { accessToken } of googleAccounts) {
+      try {
+        // Set up Gmail client
+        const auth = new google.auth.OAuth2()
+        auth.setCredentials({ access_token: accessToken })
+        const gmail = google.gmail({ version: 'v1', auth })
 
-    // Fetch the full message
-    const msgResp = await gmail.users.messages.get({ userId: 'me', id: messageId, format: 'full' })
-    const msgData = msgResp.data
+        // Fetch the full message
+        const msgResp = await gmail.users.messages.get({ userId: 'me', id: messageId, format: 'full' })
+        const msgData = msgResp.data
 
-    const headers = msgData.payload?.headers ?? []
-    const get = (name: string) => headers.find((h: any) => h.name?.toLowerCase() === name)?.value ?? ''
-    const subject = get('subject') || 'Receipt'
-    const from = get('from') || ''
-    const date = get('date') || new Date().toISOString()
+        const headers = msgData.payload?.headers ?? []
+        const get = (name: string) => headers.find((h: any) => h.name?.toLowerCase() === name)?.value ?? ''
+        const subject = get('subject') || 'Receipt'
+        const from = get('from') || ''
+        const date = get('date') || new Date().toISOString()
 
-    // Look for receipt/invoice attachments
-    const attachments = findAttachments(msgData.payload)
-    const best = pickBestAttachment(attachments)
+        // Look for receipt/invoice attachments
+        const attachments = findAttachments(msgData.payload)
+        const best = pickBestAttachment(attachments)
 
-    let fileData: Buffer
-    let fileName: string
-    let fileType: string
-    let source: 'attachment' | 'pdf'
+        let fileData: Buffer
+        let fileName: string
+        let fileType: string
+        let source: 'attachment' | 'pdf'
 
-    if (best) {
-      console.log(`[attach] Found attachment: ${best.filename} (${best.mimeType}, ${best.size} bytes)`)
-      fileData = await downloadGmailAttachment(gmail, messageId, best.attachmentId)
-      fileName = sanitiseFileName(best.filename)
-      fileType = best.mimeType
-      source = 'attachment'
-    } else {
-      console.log(`[attach] No attachment found — generating PDF from email body`)
-      const html = extractHtmlBodyFromPayload(msgData.payload)
-      fileData = await generateEmailPdf(subject, from, date, html)
-      fileName = sanitiseFileName(subject, 'pdf')
-      fileType = 'application/pdf'
-      source = 'pdf'
+        if (best) {
+          console.log(`[attach] Found attachment: ${best.filename} (${best.mimeType}, ${best.size} bytes)`)
+          fileData = await downloadGmailAttachment(gmail, messageId, best.attachmentId)
+          fileName = sanitiseFileName(best.filename)
+          fileType = best.mimeType
+          source = 'attachment'
+        } else {
+          console.log(`[attach] No attachment found — generating PDF from email body`)
+          const html = extractHtmlBodyFromPayload(msgData.payload)
+          fileData = await generateEmailPdf(subject, from, date, html)
+          fileName = sanitiseFileName(subject, 'pdf')
+          fileType = 'application/pdf'
+          source = 'pdf'
+        }
+
+        gmailResult = { fileData, fileName, fileType, source }
+        break  // success — stop trying other accounts
+      } catch (e) {
+        lastGmailError = e
+        // Continue to next account
+      }
     }
+    if (!gmailResult) throw lastGmailError ?? new Error('Message not found in any Gmail account')
 
-    console.log(`[attach] Uploading ${fileName} (${fileType}, ${fileData.length} bytes) for tx ${transactionId}`)
-    await uploadAndAttach(monzoToken, transactionId, fileName, fileType, fileData)
-    console.log(`[attach] Successfully attached ${source} to ${transactionId}`)
+    console.log(`[attach] Uploading ${gmailResult.fileName} (${gmailResult.fileType}, ${gmailResult.fileData.length} bytes) for tx ${transactionId}`)
+    await uploadAndAttach(monzoToken, transactionId, gmailResult.fileName, gmailResult.fileType, gmailResult.fileData)
+    console.log(`[attach] Successfully attached ${gmailResult.source} to ${transactionId}`)
 
-    return NextResponse.json({ success: true, source, fileName })
+    return NextResponse.json({ success: true, source: gmailResult.source, fileName: gmailResult.fileName })
   } catch (e: any) {
     console.error(`[attach] Error:`, e)
     return NextResponse.json({ error: String(e) }, { status: 500 })
