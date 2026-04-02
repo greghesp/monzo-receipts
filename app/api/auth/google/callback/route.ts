@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 import { saveToken } from '@/lib/db/queries/tokens'
-import { getGoogleOAuthClient } from '@/lib/auth/google'
+import { getGoogleOAuthClient, getGoogleUserEmail } from '@/lib/auth/google'
 import { requireSession, SESSION_COOKIE_NAME } from '@/lib/auth/session'
 
 export async function GET(req: NextRequest) {
@@ -16,14 +16,18 @@ export async function GET(req: NextRequest) {
     const client = getGoogleOAuthClient(process.env.GOOGLE_CLIENT_ID!, process.env.GOOGLE_CLIENT_SECRET!)
     const { tokens } = await client.getToken(code)
     if (!tokens.access_token || !tokens.refresh_token) throw new Error('Missing tokens')
+
+    const email = await getGoogleUserEmail(tokens.access_token)
+
     saveToken(db, {
       provider: 'google',
-      email: '',
+      email,
       access_token: tokens.access_token,
       refresh_token: tokens.refresh_token,
       expires_at: Math.floor((tokens.expiry_date ?? Date.now() + 3_600_000) / 1000),
     }, session.userId)
-    return NextResponse.redirect(new URL('/', req.url))
+
+    return NextResponse.redirect(new URL('/settings', req.url))
   } catch {
     return NextResponse.redirect(new URL('/?error=google_auth_failed', req.url))
   }
