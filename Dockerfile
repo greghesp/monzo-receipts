@@ -31,7 +31,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Non-root user for security
 RUN addgroup --system --gid 1001 nodejs \
-    && adduser --system --uid 1001 nextjs
+    && adduser --system --uid 1001 nextjs \
+    && mkdir -p /data && chown nextjs:nodejs /data
 
 # Copy Next.js standalone output
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
