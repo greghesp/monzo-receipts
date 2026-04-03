@@ -6,11 +6,12 @@ import { getGoogleOAuthClient, getGoogleUserEmail } from '@/lib/auth/google'
 import { requireSession, SESSION_COOKIE_NAME } from '@/lib/auth/session'
 
 export async function GET(req: NextRequest) {
+  const base = process.env.BASE_URL ?? 'http://localhost:3000'
   const code = req.nextUrl.searchParams.get('code')
-  if (!code) return NextResponse.redirect(new URL('/?error=no_code', req.url))
+  if (!code) return NextResponse.redirect(new URL('/?error=no_code', base))
 
   const session = requireSession(db, req.cookies.get(SESSION_COOKIE_NAME)?.value)
-  if (!session) return NextResponse.redirect(new URL('/auth/login', req.url))
+  if (!session) return NextResponse.redirect(new URL('/auth/login', base))
 
   try {
     const client = getGoogleOAuthClient(process.env.GOOGLE_CLIENT_ID!, process.env.GOOGLE_CLIENT_SECRET!)
@@ -27,8 +28,8 @@ export async function GET(req: NextRequest) {
       expires_at: Math.floor((tokens.expiry_date ?? Date.now() + 3_600_000) / 1000),
     }, session.userId)
 
-    return NextResponse.redirect(new URL('/settings', req.url))
+    return NextResponse.redirect(new URL('/settings', base))
   } catch {
-    return NextResponse.redirect(new URL('/?error=google_auth_failed', req.url))
+    return NextResponse.redirect(new URL('/?error=google_auth_failed', base))
   }
 }
