@@ -7,8 +7,5 @@ export async function GET() {
   if (!clientId || !clientSecret) {
     return NextResponse.json({ error: 'GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET not configured' }, { status: 500 })
   }
-  const authUrl = buildGoogleAuthUrl(clientId, clientSecret)
-  console.log('[google-auth] redirect_uri:', new URL(authUrl).searchParams.get('redirect_uri'))
-  console.log('[google-auth] client_id prefix:', new URL(authUrl).searchParams.get('client_id')?.slice(0, 10))
-  return NextResponse.redirect(authUrl)
+  return NextResponse.redirect(buildGoogleAuthUrl(clientId, clientSecret))
 }
