@@ -1,6 +1,8 @@
 {
-  "name": "feature-app",
+  "name": "monzo-receipts",
   "version": "0.1.0",
+  "description": "Matches Gmail receipts to Monzo transactions and submits line-item data to the Monzo Receipts API.",
+  "keywords": ["monzo", "receipts", "gmail", "self-hosted", "nextjs", "finance", "automation"],
   "private": true,
   "scripts": {
     "dev": "next dev",
