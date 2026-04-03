@@ -48,6 +48,10 @@ ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 # DB_PATH baked in so the /data volume is always used without extra user config
 ENV DB_PATH=/data/db.sqlite
+# Bind to all interfaces so the container is reachable from the host/proxy.
+# Without this, Next.js standalone defaults to the container hostname which
+# leaks into redirect Location headers.
+ENV HOSTNAME=0.0.0.0
 
 VOLUME ["/data"]
 EXPOSE 3000

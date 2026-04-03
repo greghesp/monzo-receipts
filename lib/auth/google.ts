@@ -6,7 +6,7 @@ const SCOPES = [
 ]
 
 function getRedirectUri(): string {
-  return `${process.env.BASE_URL ?? 'http://localhost:3000'}/api/auth/google/callback`
+  return `${process.env.BASE_URL || 'http://localhost:3000'}/api/auth/google/callback`
 }
 
 export function getGoogleOAuthClient(clientId: string, clientSecret: string) {
