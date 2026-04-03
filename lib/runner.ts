@@ -37,7 +37,10 @@ export async function runMatch(
 ): Promise<void> {
   const runId = createRun(db, userId)
   const lookbackDays = options?.lookbackDays ?? parseInt(getConfig(db, 'lookback_days', userId) ?? '30', 10)
-  const sinceDate = new Date(Date.now() - lookbackDays * 86_400_000).toISOString()
+  // Cap at 89 days to stay clear of Monzo's 90-day SCA boundary — fetching exactly
+  // 90 days back can land at or past the limit by the time the request arrives.
+  const safeLookback = Math.min(lookbackDays, 89)
+  const sinceDate = new Date(Date.now() - safeLookback * 86_400_000).toISOString()
   const lastRun = getLastSuccessfulRun(db, userId)
   const cursor = lastRun?.cursor_transaction_id ?? undefined
 
