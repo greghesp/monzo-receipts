@@ -8,11 +8,12 @@ import { requireSession, SESSION_COOKIE_NAME } from '@/lib/auth/session'
 import { fetchAccounts } from '@/lib/monzo/accounts'
 
 export async function GET(req: NextRequest) {
+  const base = process.env.BASE_URL ?? 'http://localhost:3000'
   const code = req.nextUrl.searchParams.get('code')
-  if (!code) return NextResponse.redirect(new URL('/?error=no_code', req.url))
+  if (!code) return NextResponse.redirect(new URL('/?error=no_code', base))
 
   const session = requireSession(db, req.cookies.get(SESSION_COOKIE_NAME)?.value)
-  if (!session) return NextResponse.redirect(new URL('/auth/login', req.url))
+  if (!session) return NextResponse.redirect(new URL('/auth/login', base))
 
   try {
     const clientId = process.env.MONZO_CLIENT_ID
@@ -36,8 +37,8 @@ export async function GET(req: NextRequest) {
       }
     } catch { /* non-fatal */ }
 
-    return NextResponse.redirect(new URL('/', req.url))
+    return NextResponse.redirect(new URL('/', base))
   } catch {
-    return NextResponse.redirect(new URL('/?error=monzo_auth_failed', req.url))
+    return NextResponse.redirect(new URL('/?error=monzo_auth_failed', base))
   }
 }
