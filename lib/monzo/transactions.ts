@@ -1,5 +1,12 @@
 import type { MonzoTransaction } from '../types'
 
+export async function pingWhoAmI(accessToken: string): Promise<boolean> {
+  const resp = await fetch('https://api.monzo.com/ping/whoami', {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  })
+  return resp.ok
+}
+
 export function buildTransactionUrl(accountId: string, sinceIso: string, cursor: string | undefined): string {
   const since = cursor ?? sinceIso
   return `https://api.monzo.com/transactions?account_id=${accountId}&since=${encodeURIComponent(since)}&expand[]=merchant&limit=100`
