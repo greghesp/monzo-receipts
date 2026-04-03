@@ -15,6 +15,7 @@ export interface MatchRow {
   matched_at: number
   transaction_date: string | null  // ISO 8601 date from Monzo transaction
   merchant_online: number          // 1 = online purchase, 0 = in-store
+  account_id: string | null
 }
 
 export interface UpsertMatchInput {
@@ -28,22 +29,24 @@ export interface UpsertMatchInput {
   receipt_data: string | null
   transaction_date?: string | null
   merchant_online?: boolean
+  account_id?: string | null
 }
 
 export function upsertMatch(db: Database.Database, input: UpsertMatchInput): void {
   db.prepare(`
-    INSERT INTO matches (transaction_id, external_id, merchant, amount, currency, status, confidence, receipt_data, matched_at, transaction_date, merchant_online)
-    VALUES (@transaction_id, @external_id, @merchant, @amount, @currency, @status, @confidence, @receipt_data, @matched_at, @transaction_date, @merchant_online)
+    INSERT INTO matches (transaction_id, external_id, merchant, amount, currency, status, confidence, receipt_data, matched_at, transaction_date, merchant_online, account_id)
+    VALUES (@transaction_id, @external_id, @merchant, @amount, @currency, @status, @confidence, @receipt_data, @matched_at, @transaction_date, @merchant_online, @account_id)
     ON CONFLICT(transaction_id) DO UPDATE SET
       external_id = excluded.external_id, status = excluded.status,
       confidence = excluded.confidence, receipt_data = excluded.receipt_data,
       matched_at = excluded.matched_at, transaction_date = excluded.transaction_date,
-      merchant_online = excluded.merchant_online
+      merchant_online = excluded.merchant_online, account_id = excluded.account_id
   `).run({
     ...input,
     matched_at: Math.floor(Date.now() / 1000),
     transaction_date: input.transaction_date ?? null,
     merchant_online: input.merchant_online ? 1 : 0,
+    account_id: input.account_id ?? null,
   })
 }
 

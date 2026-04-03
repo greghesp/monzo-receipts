@@ -92,7 +92,7 @@ export default async function DashboardPage() {
           <ScheduleStatus enabled={scheduleEnabled} cronExpr={scheduleCron} appriseUrls={appriseUrls} />
         </div>
 
-        <LastRunResults run={lastRunSummary} pendingCount={pendingReviews.length} accounts={accounts} />
+        <LastRunResults run={lastRunSummary} pendingCount={pendingReviews.length} />
       </div>
     </main>
   )

@@ -1,4 +1,4 @@
-import { scoreConfidence } from '../confidence'
+import { scoreConfidence, merchantSimilarity } from '../confidence'
 import type { MonzoTransaction, ParsedReceipt } from '../../types'
 
 const tx: MonzoTransaction = {
@@ -35,5 +35,32 @@ describe('scoreConfidence', () => {
     const debit = { ...tx, amount: -999 }
     const r = { ...receipt, total: 999 }
     expect(scoreConfidence(debit, r)).toBe('high')
+  })
+})
+
+describe('merchantSimilarity', () => {
+  it('returns 1 for identical names', () => {
+    expect(merchantSimilarity('Amazon', 'Amazon')).toBe(1)
+  })
+
+  it('returns 1 for names that differ only by case and punctuation', () => {
+    // Both normalise to 'johnssons' after stripping non-alphanumeric
+    expect(merchantSimilarity("John's Sons", 'Johns Sons')).toBe(1)
+  })
+
+  it('returns 0.8 when one name contains the other', () => {
+    expect(merchantSimilarity('Amazon UK', 'Amazon')).toBe(0.8)
+  })
+
+  it('returns 0.8 when shorter name is a substring of the longer', () => {
+    expect(merchantSimilarity('Netflix', 'Netflix Premium')).toBe(0.8)
+  })
+
+  it('returns 0 for completely different names', () => {
+    expect(merchantSimilarity('Amazon', 'Tesco')).toBe(0)
+  })
+
+  it('is case-insensitive', () => {
+    expect(merchantSimilarity('AMAZON', 'amazon')).toBe(1)
   })
 })
