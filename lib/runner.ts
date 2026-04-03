@@ -269,7 +269,7 @@ export async function runMatch(
 
     await notify(`Monzo receipts: ${matched} matched, ${needsReview} need review, ${noMatch} no match`)
     if (needsReview > 0) {
-      await notify(`${needsReview} receipt${needsReview > 1 ? 's' : ''} need review — ${process.env.BASE_URL ?? 'http://localhost:3000'}/review`)
+      await notify(`${needsReview} receipt${needsReview > 1 ? 's' : ''} need review — ${process.env.BASE_URL || 'http://localhost:3000'}/review`)
     }
   } catch (e) {
     updateRun(db, runId, { status: 'error', error_message: String(e) })

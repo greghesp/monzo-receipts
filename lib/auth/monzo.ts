@@ -1,7 +1,7 @@
 import crypto from 'crypto'
 
 function getRedirectUri(): string {
-  return `${process.env.BASE_URL ?? 'http://localhost:3000'}/api/auth/monzo/callback`
+  return `${process.env.BASE_URL || 'http://localhost:3000'}/api/auth/monzo/callback`
 }
 
 export function buildMonzoAuthUrl(clientId: string): string {

@@ -13,7 +13,7 @@ const PUBLIC_PATHS = [
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
-  const base = process.env.BASE_URL ?? 'http://localhost:3000'
+  const base = process.env.BASE_URL || 'http://localhost:3000'
 
   // Allow public paths without auth
   if (PUBLIC_PATHS.some(p => pathname.startsWith(p))) {

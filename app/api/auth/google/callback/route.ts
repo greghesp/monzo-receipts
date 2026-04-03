@@ -6,7 +6,7 @@ import { getGoogleOAuthClient, getGoogleUserEmail } from '@/lib/auth/google'
 import { requireSession, SESSION_COOKIE_NAME } from '@/lib/auth/session'
 
 export async function GET(req: NextRequest) {
-  const base = process.env.BASE_URL ?? 'http://localhost:3000'
+  const base = process.env.BASE_URL || 'http://localhost:3000'
   const code = req.nextUrl.searchParams.get('code')
   if (!code) return NextResponse.redirect(new URL('/?error=no_code', base))
 
