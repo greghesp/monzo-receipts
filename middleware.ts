@@ -13,6 +13,7 @@ const PUBLIC_PATHS = [
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
+  const base = process.env.BASE_URL ?? 'http://localhost:3000'
 
   // Allow public paths without auth
   if (PUBLIC_PATHS.some(p => pathname.startsWith(p))) {
@@ -31,7 +32,7 @@ export function middleware(req: NextRequest) {
     if (pathname === '/') {
       return NextResponse.next()
     }
-    return NextResponse.redirect(new URL('/auth/login', req.url))
+    return NextResponse.redirect(new URL('/auth/login', base))
   }
 
   // Forward token as request header so server components + API routes can validate it
