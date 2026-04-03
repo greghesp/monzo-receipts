@@ -6,7 +6,7 @@ export interface TokenRow {
   provider: Provider
   email: string           // '' for Monzo; Gmail address for Google accounts
   access_token: string
-  refresh_token: string
+  refresh_token: string | null
   expires_at: number
 }
 
