@@ -17,6 +17,7 @@ export async function forceRefreshMonzoToken(db: Database.Database, userId: numb
   const clientId = process.env.MONZO_CLIENT_ID
   const clientSecret = process.env.MONZO_CLIENT_SECRET
   if (!clientId || !clientSecret) throw new Error('Monzo OAuth credentials not configured')
+  if (!token.refresh_token) throw new Error('No Monzo refresh token — re-authorisation required')
   const fresh = await refreshMonzoToken(token.refresh_token, clientId, clientSecret)
   saveToken(db, {
     provider: 'monzo',
@@ -45,6 +46,7 @@ export async function getAllGoogleAccessTokens(
     if (!isTokenExpiredOrExpiringSoon(token)) {
       return { email: token.email, accessToken: token.access_token }
     }
+    if (!token.refresh_token) throw new Error(`No refresh token for ${token.email} — re-authorisation required`)
     const client = getGoogleOAuthClient(
       process.env.GOOGLE_CLIENT_ID!,
       process.env.GOOGLE_CLIENT_SECRET!
@@ -81,6 +83,7 @@ export async function getGoogleAccessToken(
   if (!token) throw new Error('Gmail not connected')
   if (!isTokenExpiredOrExpiringSoon(token)) return token.access_token
 
+  if (!token.refresh_token) throw new Error('No refresh token — re-authorisation required')
   const client = getGoogleOAuthClient(process.env.GOOGLE_CLIENT_ID!, process.env.GOOGLE_CLIENT_SECRET!)
   client.setCredentials({ refresh_token: token.refresh_token })
   const { credentials } = await client.refreshAccessToken()
