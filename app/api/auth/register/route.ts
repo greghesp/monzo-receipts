@@ -45,11 +45,7 @@ export async function POST(req: NextRequest) {
     if (isFirstUser) {
       // Reassign orphaned rows (from pre-migration single-user data) to this user
       db.prepare('UPDATE tokens SET user_id = ? WHERE user_id IS NULL').run(id)
-      // Keep global config keys as NULL; reassign per-user keys only
-      const globalKeys = ['monzo_client_id', 'monzo_client_secret']
-      db.prepare(
-        `UPDATE config SET user_id = ? WHERE user_id IS NULL AND key NOT IN (${globalKeys.map(() => '?').join(',')})`
-      ).run(id, ...globalKeys)
+      db.prepare('UPDATE config SET user_id = ? WHERE user_id IS NULL').run(id)
       db.prepare('UPDATE runs SET user_id = ? WHERE user_id IS NULL').run(id)
     }
 

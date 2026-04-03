@@ -1,7 +1,7 @@
 // app/api/auth/monzo/callback/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
-import { getConfig, setConfig } from '@/lib/db/queries/config'
+import { setConfig } from '@/lib/db/queries/config'
 import { saveToken } from '@/lib/db/queries/tokens'
 import { exchangeMonzoCode } from '@/lib/auth/monzo'
 import { requireSession, SESSION_COOKIE_NAME } from '@/lib/auth/session'
@@ -15,8 +15,8 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.redirect(new URL('/auth/login', req.url))
 
   try {
-    const clientId = getConfig(db, 'monzo_client_id')
-    const clientSecret = getConfig(db, 'monzo_client_secret')
+    const clientId = process.env.MONZO_CLIENT_ID
+    const clientSecret = process.env.MONZO_CLIENT_SECRET
     if (!clientId || !clientSecret) throw new Error('Monzo OAuth credentials not configured')
 
     const t = await exchangeMonzoCode(code, clientId, clientSecret)

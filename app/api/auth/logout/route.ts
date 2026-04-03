@@ -7,7 +7,7 @@ import { clearSessionCookie, SESSION_COOKIE_NAME } from '@/lib/auth/session'
 export async function POST(req: NextRequest) {
   const token = req.cookies.get(SESSION_COOKIE_NAME)?.value
   if (token) deleteSessionRow(db, token)
-  const res = NextResponse.json({ ok: true })
+  const res = NextResponse.redirect(new URL('/', req.url))
   clearSessionCookie(res)
   return res
 }

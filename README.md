@@ -71,10 +71,12 @@ cp .env.example .env
 Edit `.env` and fill in your credentials:
 
 ```env
-BASE_URL=http://192.168.1.50:3000    # URL where the app will be accessed
+BASE_URL=http://192.168.1.50:3000       # URL where the app will be accessed
+MONZO_CLIENT_ID=oauth2client_...
+MONZO_CLIENT_SECRET=your-monzo-client-secret
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=GOCSPX-your-secret
-OPENROUTER_API_KEY=sk-or-your-key    # optional
+OPENROUTER_API_KEY=sk-or-your-key       # optional
 ```
 
 **2. Start the app**
@@ -92,12 +94,23 @@ docker run -d \
   -p 3000:3000 \
   -v $(pwd)/data:/data \
   -e BASE_URL=http://localhost:3000 \
+  -e MONZO_CLIENT_ID=oauth2client_... \
+  -e MONZO_CLIENT_SECRET=your-monzo-secret \
   -e GOOGLE_CLIENT_ID=your-client-id \
   -e GOOGLE_CLIENT_SECRET=your-secret \
   -e OPENROUTER_API_KEY=sk-or-... \
   --restart unless-stopped \
   greghesp/monzo-receipts:latest
 ```
+
+### Optional env vars
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3000` | Host port the container binds to |
+| `COOKIE_SECURE` | unset | Set to `true` to enable the `Secure` flag on session cookies (required when serving over HTTPS) |
+| `PUID` | `1001` | User ID to run the app as — useful for matching volume ownership on Unraid/NAS setups |
+| `PGID` | `1001` | Group ID to run the app as |
 
 ### Data persistence
 
@@ -107,11 +120,13 @@ All data is stored in `./data/db.sqlite` next to the compose file. Back it up by
 
 ## First-run setup
 
-Once the app is running, open it in your browser — you'll be redirected to `/setup`.
+Once the app is running, open it in your browser. You'll be prompted to create an account on first visit.
 
-1. Enter your Monzo **Client ID**, **Client Secret**, and **Owner ID**, then click **Save & Connect Monzo**
+1. Go to **Settings** and enter your Monzo **Owner ID**, then click **Connect Monzo**
 2. Approve the OAuth request in the **Monzo app on your phone** (required for all new OAuth connections)
 3. Back in the browser, go to **Settings → Connect Gmail** to authorise Gmail access
+
+> **Note:** Your Monzo **Client ID** and **Client Secret** are now configured via environment variables (`MONZO_CLIENT_ID` / `MONZO_CLIENT_SECRET`), not through the UI.
 
 ---
 
@@ -155,12 +170,15 @@ Go to **Settings → Notifications** to configure [Apprise](https://github.com/c
 git clone https://github.com/greghesp/monzo-receipts.git
 cd monzo-receipts
 npm install
-cp .env.local.example .env.local
+cp .env.example .env.local
 ```
 
 Edit `.env.local`:
 
 ```env
+BASE_URL=http://localhost:3000
+MONZO_CLIENT_ID=oauth2client_...
+MONZO_CLIENT_SECRET=your-monzo-client-secret
 GOOGLE_CLIENT_ID=your-client-id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=GOCSPX-your-secret
 OPENROUTER_API_KEY=sk-or-your-key    # optional
