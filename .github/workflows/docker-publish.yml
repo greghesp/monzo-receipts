@@ -2,8 +2,8 @@ name: Build and Push to Docker Hub
 
 on:
   push:
-    branches:
-      - master
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 jobs:
@@ -26,6 +26,10 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Extract version tag
+        id: meta
+        run: echo "tag=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+
       - name: Build and push
         uses: docker/build-push-action@v6
         with:
@@ -34,6 +38,6 @@ jobs:
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/monzo-receipts:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/monzo-receipts:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/monzo-receipts:${{ steps.meta.outputs.tag }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

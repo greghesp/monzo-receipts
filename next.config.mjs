@@ -2,6 +2,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  eslint: {
+    // Lint errors are checked in a separate CI step — don't fail the Docker build
+    ignoreDuringBuilds: true,
+  },
   experimental: {
     instrumentationHook: true,
     // pdfkit reads .afm font files from disk at runtime — webpack breaks those
