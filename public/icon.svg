@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Clip everything to the rounded-square background so shadow never bleeds outside -->
+    <clipPath id="bounds">
+      <rect width="512" height="512" rx="114"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#bounds)">
+
+    <!-- Hot Coral background -->
+    <rect width="512" height="512" fill="#FF3B30"/>
+
+    <!-- Receipt shadow (same path, offset 6,7) -->
+    <path d="M 100,64 H 412 Q 432,64 432,84
+             V 428
+             L 410,452 L 388,428 L 366,452 L 344,428
+             L 322,452 L 300,428 L 278,452 L 256,428
+             L 234,452 L 212,428 L 190,452 L 168,428
+             L 146,452 L 124,428 L 102,452 L 80,428
+             V 84 Q 80,64 100,64 Z"
+          fill="rgba(0,0,0,0.2)" transform="translate(6,7)"/>
+
+    <!-- Receipt body — rounded top, 8-tooth zigzag bottom
+         x: 80→432 (352 px wide), y: 64→452 (peaks at 428, valleys at 452)
+         8 teeth × 44 px pitch, 24 px amplitude                              -->
+    <path d="M 100,64 H 412 Q 432,64 432,84
+             V 428
+             L 410,452 L 388,428 L 366,452 L 344,428
+             L 322,452 L 300,428 L 278,452 L 256,428
+             L 234,452 L 212,428 L 190,452 L 168,428
+             L 146,452 L 124,428 L 102,452 L 80,428
+             V 84 Q 80,64 100,64 Z"
+          fill="white"/>
+
+    <!-- Monzo badge circle (larger, r=52) -->
+    <circle cx="256" cy="168" r="52" fill="#FF3B30"/>
+
+    <!-- M letterform — stroke only, fits inside circle -->
+    <polyline points="220,194 220,144 256,172 292,144 292,194"
+              stroke="white" stroke-width="12"
+              stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+
+    <!-- Divider 1 -->
+    <line x1="96" y1="244" x2="416" y2="244" stroke="#EBEBEB" stroke-width="3"/>
+
+    <!-- 3 item lines — description pill (left) + amount pill (right), 14 px tall -->
+    <rect x="108" y="262" width="150" height="14" rx="7" fill="#E6E6E6"/>
+    <rect x="344" y="262" width="64"  height="14" rx="7" fill="#E6E6E6"/>
+
+    <rect x="108" y="300" width="116" height="14" rx="7" fill="#E6E6E6"/>
+    <rect x="344" y="300" width="64"  height="14" rx="7" fill="#E6E6E6"/>
+
+    <rect x="108" y="338" width="176" height="14" rx="7" fill="#E6E6E6"/>
+    <rect x="344" y="338" width="64"  height="14" rx="7" fill="#E6E6E6"/>
+
+    <!-- Divider 2 -->
+    <line x1="96" y1="370" x2="416" y2="370" stroke="#EBEBEB" stroke-width="3"/>
+
+    <!-- Total row — label pill (grey) + amount pill (coral) -->
+    <rect x="108" y="388" width="84"  height="18" rx="9"  fill="#D8D8D8"/>
+    <rect x="308" y="385" width="100" height="24" rx="12" fill="#FF3B30" opacity="0.85"/>
+
+  </g>
+</svg>

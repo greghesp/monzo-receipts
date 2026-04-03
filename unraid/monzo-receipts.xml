@@ -1,0 +1,53 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>monzo-receipts</Name>
+  <Repository>greghesp/monzo-receipts</Repository>
+  <Registry>https://hub.docker.com/r/greghesp/monzo-receipts</Registry>
+  <GitHub>https://github.com/greghesp/monzo-receipts</GitHub>
+  <Branch>master</Branch>
+  <ReadMe>https://github.com/greghesp/monzo-receipts/blob/master/README.md</ReadMe>
+  <Network>bridge</Network>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/greghesp/monzo-receipts/issues</Support>
+  <Project>https://github.com/greghesp/monzo-receipts</Project>
+  <Overview>Automatically match Monzo bank transactions to Gmail receipts using OAuth. Connects to your Monzo account and Gmail inbox to pair purchases with their email receipts.</Overview>
+  <Category>Productivity: Finance:</Category>
+  <WebUI>http://[IP]:[PORT:3000]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/greghesp/monzo-receipts/master/unraid/monzo-receipts.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/greghesp/monzo-receipts/master/public/icon.svg</Icon>
+  <ExtraParams/>
+  <DateInstalled/>
+  <DonateText/>
+  <DonateLink/>
+
+  <!-- Port -->
+  <Config Name="Web UI Port" Target="3000" Default="3000" Mode="tcp" Description="Port for the Monzo Receipts web interface." Type="Port" Display="always" Required="true" Mask="false">3000</Config>
+
+  <!-- Data volume -->
+  <Config Name="Data Path" Target="/data" Default="/mnt/user/appdata/monzo-receipts" Mode="rw" Description="Path to store the SQLite database and application data." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/monzo-receipts</Config>
+
+  <!-- Required env vars -->
+  <Config Name="Base URL" Target="BASE_URL" Default="http://YOUR-UNRAID-IP:3000" Mode="" Description="The public URL of this app (e.g. https://receipts.yourdomain.com). Used for OAuth redirect URIs — must match exactly what is registered in Monzo and Google Cloud Console." Type="Variable" Display="always" Required="true" Mask="false">http://YOUR-UNRAID-IP:3000</Config>
+
+  <Config Name="Monzo Client ID" Target="MONZO_CLIENT_ID" Default="" Mode="" Description="OAuth Client ID from the Monzo Developer Portal (https://developers.monzo.com)." Type="Variable" Display="always" Required="true" Mask="false"></Config>
+
+  <Config Name="Monzo Client Secret" Target="MONZO_CLIENT_SECRET" Default="" Mode="" Description="OAuth Client Secret from the Monzo Developer Portal." Type="Variable" Display="always" Required="true" Mask="true"></Config>
+
+  <!-- Google (optional but needed for Gmail matching) -->
+  <Config Name="Google Client ID" Target="GOOGLE_CLIENT_ID" Default="" Mode="" Description="OAuth Client ID from Google Cloud Console. Required for Gmail receipt matching." Type="Variable" Display="always" Required="true" Mask="false"></Config>
+
+  <Config Name="Google Client Secret" Target="GOOGLE_CLIENT_SECRET" Default="" Mode="" Description="OAuth Client Secret from Google Cloud Console. Required for Gmail receipt matching." Type="Variable" Display="always" Required="true" Mask="true"></Config>
+
+  <!-- OpenRouter (optional AI matching) -->
+  <Config Name="OpenRouter API Key" Target="OPENROUTER_API_KEY" Default="" Mode="" Description="API key from OpenRouter (https://openrouter.ai). Required for AI-powered receipt matching." Type="Variable" Display="advanced" Required="false" Mask="true"></Config>
+
+  <Config Name="OpenRouter Model" Target="OPENROUTER_MODEL" Default="" Mode="" Description="OpenRouter model to use for AI matching (e.g. openai/gpt-4o-mini). Defaults to a sensible model if left blank." Type="Variable" Display="advanced" Required="false" Mask="false"></Config>
+
+  <!-- Optional tweaks -->
+  <Config Name="Cookie Secure" Target="COOKIE_SECURE" Default="true" Mode="" Description="Set to 'true' when serving over HTTPS (recommended for production). Set to 'false' for plain HTTP." Type="Variable" Display="advanced" Required="false" Mask="false">true</Config>
+
+  <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="User ID the container process runs as." Type="Variable" Display="advanced" Required="false" Mask="false">99</Config>
+
+  <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Group ID the container process runs as." Type="Variable" Display="advanced" Required="false" Mask="false">100</Config>
+
+</Container>
