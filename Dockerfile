@@ -22,17 +22,18 @@ WORKDIR /app
 # Runtime dependencies:
 #   chromium         — for Puppeteer PDF generation (package name on Debian Bookworm, both amd64 + arm64)
 #   python3/pip      — for apprise notification CLI
+#   gosu             — for dropping privileges in the entrypoint
 #   --break-system-packages is required on Debian Bookworm+ (PEP 668)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     chromium \
     python3 python3-pip \
+    gosu \
     && pip install --break-system-packages apprise \
     && rm -rf /var/lib/apt/lists/*
 
 # Non-root user for security
 RUN addgroup --system --gid 1001 nodejs \
-    && adduser --system --uid 1001 nextjs \
-    && mkdir -p /data && chown nextjs:nodejs /data
+    && adduser --system --uid 1001 nextjs
 
 # Copy Next.js standalone output
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
@@ -51,6 +52,9 @@ ENV DB_PATH=/data/db.sqlite
 VOLUME ["/data"]
 EXPOSE 3000
 
-USER nextjs
+COPY --chown=root:root entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-CMD ["node", "server.js"]
+# Container starts as root so the entrypoint can fix /data ownership,
+# then drops to nextjs via gosu
+ENTRYPOINT ["/entrypoint.sh"]
