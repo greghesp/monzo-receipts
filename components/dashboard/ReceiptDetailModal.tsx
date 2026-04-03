@@ -212,7 +212,7 @@ export default function ReceiptDetailModal({ match, onClose, onSubmitted }: Prop
                 <div className="bg-emerald-900/40 border border-emerald-700/50 rounded-xl p-3 text-center">
                   <p className="text-xs text-emerald-400">✓ Receipt submitted to Monzo</p>
                 </div>
-              ) : linkState === 'parsed' && parsedReceipt ? (
+              ) : (linkState === 'parsed' || linkState === 'submitting') && parsedReceipt ? (
                 <div className="space-y-2">
                   <div className="bg-slate-900 rounded-xl p-3">
                     <p className="text-xs text-slate-500 mb-1">Parsed receipt</p>
