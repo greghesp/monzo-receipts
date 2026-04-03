@@ -144,6 +144,25 @@ npm test          # run test suite
 npm run dev       # development server with hot reload
 ```
 
+### Branching strategy
+
+| Branch | Purpose |
+|--------|---------|
+| `develop` | Active development — push freely here |
+| `master` | Stable releases only — merged from `develop` when ready |
+
+All day-to-day work happens on `develop`. When ready to release, merge into `master` and create a version tag to trigger a Docker Hub build:
+
+```bash
+git checkout master
+git merge develop
+git push origin master
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+Docker Hub images are tagged with both `latest` and the version (e.g. `greghesp/monzo-receipts:v1.0.0`).
+
 ## Running with Docker
 
 Docker packages the app and all its dependencies (including Chromium and apprise) into a single image that runs anywhere.
