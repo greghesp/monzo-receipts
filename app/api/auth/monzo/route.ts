@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server'
-import db from '@/lib/db'
-import { getConfig } from '@/lib/db/queries/config'
 import { buildMonzoAuthUrl } from '@/lib/auth/monzo'
 
 export async function GET() {
-  const clientId = getConfig(db, 'monzo_client_id')
+  const clientId = process.env.MONZO_CLIENT_ID
   const baseUrl = process.env.BASE_URL ?? 'http://localhost:3000'
-  if (!clientId) return NextResponse.redirect(new URL('/setup', baseUrl))
+  if (!clientId) return NextResponse.json({ error: 'MONZO_CLIENT_ID not configured' }, { status: 500 })
   return NextResponse.redirect(buildMonzoAuthUrl(clientId))
 }

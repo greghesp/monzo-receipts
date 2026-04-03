@@ -19,7 +19,6 @@ import Link from 'next/link'
 export const dynamic = 'force-dynamic'
 
 export default async function DashboardPage() {
-  if (!getConfig(db, 'monzo_client_id')) redirect('/setup')
   if (!hasAnyUsers(db)) redirect('/auth/register')
   const session = requireSession(db, cookies().get('session')?.value)
   if (!session) redirect('/auth/login')

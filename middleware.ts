@@ -2,7 +2,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 const PUBLIC_PATHS = [
-  '/setup',
   '/auth/login',
   '/auth/register',
   '/api/auth/login',
@@ -26,6 +25,11 @@ export function middleware(req: NextRequest) {
     // API routes return 401; page routes redirect to login
     if (pathname.startsWith('/api/')) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    // Let the root page handle its own redirects — it checks for first-run state
+    // (no users → /auth/register, no setup → /setup) before falling back to /auth/login
+    if (pathname === '/') {
+      return NextResponse.next()
     }
     return NextResponse.redirect(new URL('/auth/login', req.url))
   }

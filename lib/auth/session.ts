@@ -43,7 +43,7 @@ export function setSessionCookie(res: NextResponse, token: string): void {
     httpOnly: true,
     sameSite: 'lax',
     path: '/',
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.COOKIE_SECURE === 'true',
     // No maxAge / expires → session cookie that persists until logout
   })
 }
