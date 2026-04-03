@@ -2,6 +2,8 @@
 
 Self-hosted Next.js app that connects your Gmail and Monzo accounts to automatically match receipt emails to bank transactions. Extracts line-item data from emails and submits it to the Monzo Receipts API, so itemised receipts appear natively inside the Monzo app. High-confidence matches are submitted automatically; lower-confidence matches are queued for manual review.
 
+![Dashboard](docs/screenshots/dashboard.png)
+
 ## How it works
 
 1. Fetches recent debit transactions from your Monzo account(s)
