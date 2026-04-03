@@ -1,76 +1,65 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Clip everything to the rounded-square background so shadow never bleeds outside -->
+    <clipPath id="bounds">
+      <rect width="512" height="512" rx="114"/>
+    </clipPath>
+  </defs>
 
-  <!-- Hot Coral background (iOS-style rounded square) -->
-  <rect width="512" height="512" rx="114" fill="#FF3B30"/>
+  <g clip-path="url(#bounds)">
 
-  <!-- Receipt drop shadow -->
-  <path d="
-    M 160,116 H 352 Q 366,116 366,130
-    V 404
-    L 355,424 L 344,404
-    L 333,424 L 322,404
-    L 311,424 L 300,404
-    L 289,424 L 278,404
-    L 267,424 L 256,404
-    L 245,424 L 234,404
-    L 223,424 L 212,404
-    L 201,424 L 190,404
-    L 179,424 L 168,404
-    L 157,424 L 146,404
-    V 130
-    Q 146,116 160,116 Z
-  " fill="rgba(0,0,0,0.18)" transform="translate(6,7)"/>
+    <!-- Hot Coral background -->
+    <rect width="512" height="512" fill="#FF3B30"/>
 
-  <!-- Receipt body (white, rounded top, zigzag bottom) -->
-  <path d="
-    M 160,110
-    H 352
-    Q 366,110 366,124
-    V 398
-    L 355,418 L 344,398
-    L 333,418 L 322,398
-    L 311,418 L 300,398
-    L 289,418 L 278,398
-    L 267,418 L 256,398
-    L 245,418 L 234,398
-    L 223,418 L 212,398
-    L 201,418 L 190,398
-    L 179,418 L 168,398
-    L 157,418 L 146,398
-    V 124
-    Q 146,110 160,110
-    Z
-  " fill="white"/>
+    <!-- Receipt shadow (same path, offset 6,7) -->
+    <path d="M 100,64 H 412 Q 432,64 432,84
+             V 428
+             L 410,452 L 388,428 L 366,452 L 344,428
+             L 322,452 L 300,428 L 278,452 L 256,428
+             L 234,452 L 212,428 L 190,452 L 168,428
+             L 146,452 L 124,428 L 102,452 L 80,428
+             V 84 Q 80,64 100,64 Z"
+          fill="rgba(0,0,0,0.2)" transform="translate(6,7)"/>
 
-  <!-- Monzo badge circle -->
-  <circle cx="256" cy="172" r="40" fill="#FF3B30"/>
+    <!-- Receipt body — rounded top, 8-tooth zigzag bottom
+         x: 80→432 (352 px wide), y: 64→452 (peaks at 428, valleys at 452)
+         8 teeth × 44 px pitch, 24 px amplitude                              -->
+    <path d="M 100,64 H 412 Q 432,64 432,84
+             V 428
+             L 410,452 L 388,428 L 366,452 L 344,428
+             L 322,452 L 300,428 L 278,452 L 256,428
+             L 234,452 L 212,428 L 190,452 L 168,428
+             L 146,452 L 124,428 L 102,452 L 80,428
+             V 84 Q 80,64 100,64 Z"
+          fill="white"/>
 
-  <!-- Monzo M (stroke letterform) -->
-  <polyline
-    points="232,193 232,152 256,172 280,152 280,193"
-    stroke="white" stroke-width="9.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    <!-- Monzo badge circle (larger, r=52) -->
+    <circle cx="256" cy="168" r="52" fill="#FF3B30"/>
 
-  <!-- Divider 1 -->
-  <line x1="170" y1="230" x2="342" y2="230" stroke="#EAEAEA" stroke-width="2"/>
+    <!-- M letterform — stroke only, fits inside circle -->
+    <polyline points="220,194 220,144 256,172 292,144 292,194"
+              stroke="white" stroke-width="12"
+              stroke-linecap="round" stroke-linejoin="round" fill="none"/>
 
-  <!-- Receipt item lines (description pill + amount pill) -->
-  <rect x="176" y="244" width="108" height="9" rx="4.5" fill="#E4E4E4"/>
-  <rect x="312" y="244" width="30" height="9" rx="4.5" fill="#E4E4E4"/>
+    <!-- Divider 1 -->
+    <line x1="96" y1="244" x2="416" y2="244" stroke="#EBEBEB" stroke-width="3"/>
 
-  <rect x="176" y="265" width="86" height="9" rx="4.5" fill="#E4E4E4"/>
-  <rect x="312" y="265" width="30" height="9" rx="4.5" fill="#E4E4E4"/>
+    <!-- 3 item lines — description pill (left) + amount pill (right), 14 px tall -->
+    <rect x="108" y="262" width="150" height="14" rx="7" fill="#E6E6E6"/>
+    <rect x="344" y="262" width="64"  height="14" rx="7" fill="#E6E6E6"/>
 
-  <rect x="176" y="286" width="122" height="9" rx="4.5" fill="#E4E4E4"/>
-  <rect x="312" y="286" width="30" height="9" rx="4.5" fill="#E4E4E4"/>
+    <rect x="108" y="300" width="116" height="14" rx="7" fill="#E6E6E6"/>
+    <rect x="344" y="300" width="64"  height="14" rx="7" fill="#E6E6E6"/>
 
-  <rect x="176" y="307" width="72" height="9" rx="4.5" fill="#E4E4E4"/>
-  <rect x="312" y="307" width="30" height="9" rx="4.5" fill="#E4E4E4"/>
+    <rect x="108" y="338" width="176" height="14" rx="7" fill="#E6E6E6"/>
+    <rect x="344" y="338" width="64"  height="14" rx="7" fill="#E6E6E6"/>
 
-  <!-- Divider 2 -->
-  <line x1="170" y1="331" x2="342" y2="331" stroke="#EAEAEA" stroke-width="2"/>
+    <!-- Divider 2 -->
+    <line x1="96" y1="370" x2="416" y2="370" stroke="#EBEBEB" stroke-width="3"/>
 
-  <!-- Total row -->
-  <rect x="176" y="346" width="58" height="12" rx="6" fill="#D6D6D6"/>
-  <rect x="278" y="343" width="64" height="18" rx="9" fill="#FF3B30" opacity="0.82"/>
+    <!-- Total row — label pill (grey) + amount pill (coral) -->
+    <rect x="108" y="388" width="84"  height="18" rx="9"  fill="#D8D8D8"/>
+    <rect x="308" y="385" width="100" height="24" rx="12" fill="#FF3B30" opacity="0.85"/>
 
+  </g>
 </svg>
