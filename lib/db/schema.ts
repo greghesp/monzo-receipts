@@ -57,6 +57,21 @@ export function createSchema(db: Database.Database): void {
     db.exec('ALTER TABLE matches ADD COLUMN merchant_online INTEGER NOT NULL DEFAULT 0')
   if (!matchesCols.includes('account_id'))
     db.exec('ALTER TABLE matches ADD COLUMN account_id TEXT')
+  if (!matchesCols.includes('user_id'))
+    db.exec('ALTER TABLE matches ADD COLUMN user_id INTEGER REFERENCES users(id)')
+
+  // ── user_accounts table ──────────────────────────────────────────────────
+  // Stores the Monzo account IDs and types for each user, populated on OAuth
+  // callback. Used to enforce per-user data isolation and controlled sharing
+  // of joint/business accounts.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS user_accounts (
+      user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      account_id   TEXT NOT NULL,
+      account_type TEXT NOT NULL,
+      PRIMARY KEY (user_id, account_id)
+    );
+  `)
 
   // ── Table-rebuild migrations for tokens and config ───────────────────────
   // SQLite cannot change PRIMARY KEY via ALTER TABLE, so we use the

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
-import { getMatchById, updateMatchStatus } from '@/lib/db/queries/matches'
+import { getMatchById, updateMatchStatus, isMatchVisibleToUser } from '@/lib/db/queries/matches'
 import { submitReceipt } from '@/lib/monzo/receipts'
 import { getMonzoAccessToken } from '@/lib/token-refresh'
 import { requireSession } from '@/lib/auth/session'
@@ -15,6 +15,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
   const { action } = await req.json() as { action: 'approve' | 'skip' }
   const match = getMatchById(db, id)
   if (!match) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  if (!isMatchVisibleToUser(db, id, userId)) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   if (action === 'skip') {
     updateMatchStatus(db, id, 'skipped')
