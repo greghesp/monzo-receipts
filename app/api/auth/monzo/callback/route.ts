@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import db from '@/lib/db'
 import { setConfig } from '@/lib/db/queries/config'
 import { saveToken } from '@/lib/db/queries/tokens'
+import { saveUserAccounts } from '@/lib/db/queries/user-accounts'
 import { exchangeMonzoCode } from '@/lib/auth/monzo'
 import { requireSession, SESSION_COOKIE_NAME } from '@/lib/auth/session'
 import { fetchAccounts } from '@/lib/monzo/accounts'
@@ -29,12 +30,13 @@ export async function GET(req: NextRequest) {
       expires_at: Math.floor(Date.now() / 1000) + t.expires_in,
     }, session.userId)
 
-    // Auto-discover monzo_owner_id from accounts API
+    // Auto-discover monzo_owner_id and save account list for access control
     try {
       const accounts = await fetchAccounts(t.access_token)
       if (accounts.length > 0 && accounts[0].owners?.[0]?.user_id) {
         setConfig(db, 'monzo_owner_id', accounts[0].owners[0].user_id, session.userId)
       }
+      saveUserAccounts(db, session.userId, accounts.map(a => ({ id: a.id, type: a.type })))
     } catch { /* non-fatal */ }
 
     return NextResponse.redirect(new URL('/', base))

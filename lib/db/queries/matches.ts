@@ -16,6 +16,7 @@ export interface MatchRow {
   transaction_date: string | null  // ISO 8601 date from Monzo transaction
   merchant_online: number          // 1 = online purchase, 0 = in-store
   account_id: string | null
+  user_id: number | null
 }
 
 export interface UpsertMatchInput {
@@ -30,23 +31,26 @@ export interface UpsertMatchInput {
   transaction_date?: string | null
   merchant_online?: boolean
   account_id?: string | null
+  user_id?: number | null
 }
 
 export function upsertMatch(db: Database.Database, input: UpsertMatchInput): void {
   db.prepare(`
-    INSERT INTO matches (transaction_id, external_id, merchant, amount, currency, status, confidence, receipt_data, matched_at, transaction_date, merchant_online, account_id)
-    VALUES (@transaction_id, @external_id, @merchant, @amount, @currency, @status, @confidence, @receipt_data, @matched_at, @transaction_date, @merchant_online, @account_id)
+    INSERT INTO matches (transaction_id, external_id, merchant, amount, currency, status, confidence, receipt_data, matched_at, transaction_date, merchant_online, account_id, user_id)
+    VALUES (@transaction_id, @external_id, @merchant, @amount, @currency, @status, @confidence, @receipt_data, @matched_at, @transaction_date, @merchant_online, @account_id, @user_id)
     ON CONFLICT(transaction_id) DO UPDATE SET
       external_id = excluded.external_id, status = excluded.status,
       confidence = excluded.confidence, receipt_data = excluded.receipt_data,
       matched_at = excluded.matched_at, transaction_date = excluded.transaction_date,
-      merchant_online = excluded.merchant_online, account_id = excluded.account_id
+      merchant_online = excluded.merchant_online, account_id = excluded.account_id,
+      user_id = excluded.user_id
   `).run({
     ...input,
     matched_at: Math.floor(Date.now() / 1000),
     transaction_date: input.transaction_date ?? null,
     merchant_online: input.merchant_online ? 1 : 0,
     account_id: input.account_id ?? null,
+    user_id: input.user_id ?? null,
   })
 }
 
@@ -59,7 +63,7 @@ export function getMatchById(db: Database.Database, id: number): MatchRow | null
 }
 
 export function getPendingReviewMatches(db: Database.Database): MatchRow[] {
-  return db.prepare("SELECT * FROM matches WHERE status = 'pending_review' ORDER BY matched_at DESC").all() as MatchRow[]
+  return db.prepare("SELECT * FROM matches WHERE status = 'pending_review' ORDER BY transaction_date DESC").all() as MatchRow[]
 }
 
 export function updateMatchStatus(db: Database.Database, id: number, status: MatchStatus): void {
@@ -67,11 +71,77 @@ export function updateMatchStatus(db: Database.Database, id: number, status: Mat
 }
 
 export function getMatches(db: Database.Database, limit = 50, offset = 0): MatchRow[] {
-  return db.prepare('SELECT * FROM matches ORDER BY matched_at DESC LIMIT ? OFFSET ?').all(limit, offset) as MatchRow[]
+  return db.prepare('SELECT * FROM matches ORDER BY transaction_date DESC LIMIT ? OFFSET ?').all(limit, offset) as MatchRow[]
 }
 
 export function getMatchStats(db: Database.Database): { total: number; submitted: number; pending_review: number; no_match: number; skipped: number } {
   const rows = db.prepare('SELECT status, COUNT(*) as count FROM matches GROUP BY status').all() as { status: MatchStatus; count: number }[]
   const m = Object.fromEntries(rows.map(r => [r.status, r.count]))
   return { total: rows.reduce((s, r) => s + r.count, 0), submitted: m.submitted ?? 0, pending_review: m.pending_review ?? 0, no_match: m.no_match ?? 0, skipped: m.skipped ?? 0 }
+}
+
+// Visibility rules (all three conditions use one ? per user_id bind):
+//   1. user_id = me                          — directly owned
+//   2. user_id IS NULL + account_id matches  — legacy rows (pre-user-tracking)
+//   3. joint/business account_id matches     — shared across users
+//
+// Each helper that uses this builds the args array as [userId, userId, userId, ...rest].
+const VISIBILITY_WHERE = `
+  user_id = ?
+  OR (user_id IS NULL AND account_id IS NOT NULL AND account_id IN (
+        SELECT account_id FROM user_accounts WHERE user_id = ?
+     ))
+  OR (account_id IS NOT NULL AND account_id IN (
+        SELECT account_id FROM user_accounts
+        WHERE user_id = ? AND account_type != 'uk_retail'
+     ))
+`
+
+export function getMatchesForUserFiltered(
+  db: Database.Database,
+  userId: number,
+  status: string,
+  onlineOnly: boolean,
+  limit = 50,
+  offset = 0
+): MatchRow[] {
+  const statusClause = status ? 'AND status = ?' : ''
+  const onlineClause = onlineOnly ? 'AND merchant_online = 1' : ''
+  const args: unknown[] = [userId, userId, userId]
+  if (status) args.push(status)
+  args.push(limit, offset)
+
+  return db.prepare(`
+    SELECT * FROM matches
+    WHERE (${VISIBILITY_WHERE})
+    ${statusClause}
+    ${onlineClause}
+    ORDER BY transaction_date DESC
+    LIMIT ? OFFSET ?
+  `).all(...args) as MatchRow[]
+}
+
+export function getMatchStatsForUser(
+  db: Database.Database,
+  userId: number
+): { total: number; submitted: number; pending_review: number; no_match: number; skipped: number } {
+  const rows = db.prepare(`
+    SELECT status, COUNT(*) as count FROM matches
+    WHERE (${VISIBILITY_WHERE})
+    GROUP BY status
+  `).all(userId, userId, userId) as { status: MatchStatus; count: number }[]
+  const m = Object.fromEntries(rows.map(r => [r.status, r.count]))
+  return { total: rows.reduce((s, r) => s + r.count, 0), submitted: m.submitted ?? 0, pending_review: m.pending_review ?? 0, no_match: m.no_match ?? 0, skipped: m.skipped ?? 0 }
+}
+
+export function isMatchVisibleToUser(
+  db: Database.Database,
+  matchId: number,
+  userId: number
+): boolean {
+  const row = db.prepare(`
+    SELECT 1 FROM matches
+    WHERE id = ? AND (${VISIBILITY_WHERE})
+  `).get(matchId, userId, userId, userId) as { 1: number } | undefined
+  return !!row
 }

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { runMatch, type RunOptions } from '@/lib/runner'
 import { getRunState } from '@/lib/run-state'
 import { requireSession } from '@/lib/auth/session'
+import { getUserAccounts } from '@/lib/db/queries/user-accounts'
 import db from '@/lib/db'
 
 export async function POST(req: NextRequest) {
@@ -23,6 +24,14 @@ export async function POST(req: NextRequest) {
   const { accountIds, lookbackDays, onlyOnline } = body
   if (!accountIds?.length) {
     return NextResponse.json({ error: 'accountIds required' }, { status: 400 })
+  }
+
+  // Validate all requested account IDs belong to this user
+  const userAccounts = getUserAccounts(db, session.userId)
+  const allowedIds = new Set(userAccounts.map(a => a.account_id))
+  const unauthorized = accountIds.filter((id: string) => !allowedIds.has(id))
+  if (unauthorized.length > 0) {
+    return NextResponse.json({ error: 'One or more account IDs are not associated with your Monzo account' }, { status: 403 })
   }
 
   const options: RunOptions = {}
