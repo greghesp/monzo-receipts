@@ -8,7 +8,6 @@ import { searchReceipts, readEmail } from './gmail/search'
 import { findAttachments, pickBestAttachment, downloadGmailAttachment } from './gmail/attachments'
 import { extractJsonLdOrder } from './parsing/jsonld'
 import { parseEmailWithClaude } from './parsing/claude'
-import { parseReceiptFromPdf } from './parsing/pdf'
 import { google } from 'googleapis'
 import { matchEmailsToTransactions } from './matching/match'
 import { scoreConfidence } from './matching/confidence'
@@ -181,6 +180,7 @@ export async function runMatch(
                 auth.setCredentials({ access_token: accessToken })
                 const gmail = google.gmail({ version: 'v1', auth })
                 const pdfBuffer = await downloadGmailAttachment(gmail, msgId, bestPdf.attachmentId)
+                const { parseReceiptFromPdf } = await import('./parsing/pdf')
                 const pdfReceipt = await parseReceiptFromPdf(pdfBuffer, bestPdf.filename)
                 if (pdfReceipt && pdfReceipt.total > 0) {
                   console.log(`[runner]   → PDF parsed: merchant="${pdfReceipt.merchant}" total=${pdfReceipt.total}p date=${pdfReceipt.date}`)
