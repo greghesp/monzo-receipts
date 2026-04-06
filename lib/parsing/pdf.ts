@@ -1,3 +1,4 @@
+import '@/lib/polyfills/dom-matrix'
 import { PDFParse } from 'pdf-parse'
 import type { ParsedReceipt } from '../types'
 
