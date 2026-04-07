@@ -18,7 +18,7 @@ export async function fetchAccounts(accessToken: string): Promise<MonzoAccount[]
     throw new Error(`Failed to fetch accounts: ${resp.status}`)
   }
   const { accounts } = await resp.json() as { accounts: MonzoAccount[] }
-  console.log(`[monzo/accounts] raw accounts from API: ${accounts.length} total, types: ${[...new Set(accounts.map(a => a.type))].join(', ')}`)
+  console.log(`[monzo/accounts] raw accounts from API: ${accounts.length} total, types: ${Array.from(new Set(accounts.map(a => a.type))).join(', ')}`)
   const filtered = filterActiveAccounts(accounts)
   if (filtered.length < accounts.length) {
     console.log(`[monzo/accounts] filtered to ${filtered.length} active account(s) (${accounts.length - filtered.length} excluded)`)
