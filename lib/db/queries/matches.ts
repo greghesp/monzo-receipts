@@ -103,12 +103,15 @@ export function getMatchesForUserFiltered(
   status: string,
   onlineOnly: boolean,
   limit = 50,
-  offset = 0
+  offset = 0,
+  accountId?: string
 ): MatchRow[] {
   const statusClause = status ? 'AND status = ?' : ''
   const onlineClause = onlineOnly ? 'AND merchant_online = 1' : ''
+  const accountClause = accountId ? 'AND account_id = ?' : ''
   const args: unknown[] = [userId, userId, userId]
   if (status) args.push(status)
+  if (accountId) args.push(accountId)
   args.push(limit, offset)
 
   return db.prepare(`
@@ -116,6 +119,7 @@ export function getMatchesForUserFiltered(
     WHERE (${VISIBILITY_WHERE})
     ${statusClause}
     ${onlineClause}
+    ${accountClause}
     ORDER BY transaction_date DESC
     LIMIT ? OFFSET ?
   `).all(...args) as MatchRow[]
@@ -123,13 +127,18 @@ export function getMatchesForUserFiltered(
 
 export function getMatchStatsForUser(
   db: Database.Database,
-  userId: number
+  userId: number,
+  accountId?: string
 ): { total: number; submitted: number; pending_review: number; no_match: number; skipped: number } {
+  const accountClause = accountId ? 'AND account_id = ?' : ''
+  const args: unknown[] = [userId, userId, userId]
+  if (accountId) args.push(accountId)
   const rows = db.prepare(`
     SELECT status, COUNT(*) as count FROM matches
     WHERE (${VISIBILITY_WHERE})
+    ${accountClause}
     GROUP BY status
-  `).all(userId, userId, userId) as { status: MatchStatus; count: number }[]
+  `).all(...args) as { status: MatchStatus; count: number }[]
   const m = Object.fromEntries(rows.map(r => [r.status, r.count]))
   return { total: rows.reduce((s, r) => s + r.count, 0), submitted: m.submitted ?? 0, pending_review: m.pending_review ?? 0, no_match: m.no_match ?? 0, skipped: m.skipped ?? 0 }
 }

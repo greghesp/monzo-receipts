@@ -6,8 +6,9 @@ import type { MatchRow } from '@/lib/db/queries/matches'
 
 type StatusFilter = 'all' | 'submitted' | 'pending_review' | 'no_match' | 'skipped'
 
+interface Account { id: string; displayName: string; type: string }
 interface RunSummary { completedAt: number; transactionsScanned: number; matched: number; needsReview: number; status: string }
-interface Props { run: RunSummary | null; pendingCount: number }
+interface Props { run: RunSummary | null; pendingCount: number; accounts?: Account[] }
 interface Stats { total: number; submitted: number; pending_review: number; no_match: number; skipped: number }
 
 const PAGE_SIZE = 20
@@ -20,9 +21,10 @@ const STATUS_CONFIG: Record<StatusFilter, { label: string; icon: string; color: 
   skipped:        { label: 'Skipped',     icon: '·', color: 'text-slate-500' },
 }
 
-export default function LastRunResults({ run, pendingCount }: Props) {
+export default function LastRunResults({ run, pendingCount, accounts = [] }: Props) {
   const [filter, setFilter] = useState<StatusFilter>('all')
   const [onlineOnly, setOnlineOnly] = useState(false)
+  const [accountId, setAccountId] = useState<string>('')
   const [page, setPage] = useState(0)
   const [matches, setMatches] = useState<MatchRow[]>([])
   const [stats, setStats] = useState<Stats | null>(null)
@@ -37,6 +39,7 @@ export default function LastRunResults({ run, pendingCount }: Props) {
       offset: String(page * PAGE_SIZE),
       ...(filter !== 'all' ? { status: filter } : {}),
       ...(onlineOnly ? { online: 'true' } : {}),
+      ...(accountId ? { accountId } : {}),
     })
     fetch(`/api/matches?${params}`)
       .then(r => r.json())
@@ -45,7 +48,7 @@ export default function LastRunResults({ run, pendingCount }: Props) {
         setStats(d.stats ?? null)
         setLoading(false)
       })
-  }, [run, filter, page, onlineOnly, refreshKey])
+  }, [run, filter, page, onlineOnly, accountId, refreshKey])
 
   function handleFilterChange(f: StatusFilter) {
     setFilter(f)
@@ -54,6 +57,11 @@ export default function LastRunResults({ run, pendingCount }: Props) {
 
   function handleOnlineToggle() {
     setOnlineOnly(v => !v)
+    setPage(0)
+  }
+
+  function handleAccountChange(id: string) {
+    setAccountId(id)
     setPage(0)
   }
 
@@ -128,6 +136,18 @@ export default function LastRunResults({ run, pendingCount }: Props) {
           >
             🌐 Online only
           </button>
+          {accounts.length > 1 && (
+            <select
+              value={accountId}
+              onChange={e => handleAccountChange(e.target.value)}
+              className="ml-auto bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-300"
+            >
+              <option value="">All accounts</option>
+              {accounts.map(a => (
+                <option key={a.id} value={a.id}>{a.displayName}</option>
+              ))}
+            </select>
+          )}
         </div>
 
         {/* Match list */}
