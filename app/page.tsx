@@ -37,16 +37,22 @@ export default async function DashboardPage() {
   const onlyOnline = getConfig(db, 'only_online_transactions', userId) === 'true'
 
   let accounts: { id: string; description: string; displayName: string; type: string }[] = []
+  let monzoError = false
   if (monzoConnected) {
     try {
       const token = await getMonzoAccessToken(db, userId)
-      accounts = (await fetchAccounts(token)).map(a => ({
+      const raw = await fetchAccounts(token)
+      console.log(`[dashboard] fetched ${raw.length} account(s) for user ${userId}:`, raw.map(a => `${a.id} (${a.type})`))
+      accounts = raw.map(a => ({
         id: a.id,
         description: a.description,
         displayName: accountDisplayName(a),
         type: a.type,
       }))
-    } catch { /* token expired — show reconnect */ }
+    } catch (err) {
+      console.error(`[dashboard] failed to fetch Monzo accounts for user ${userId}:`, err)
+      monzoError = true
+    }
   }
 
   // Pass run info even on failure so LastRunResults still shows historical matches
@@ -67,7 +73,7 @@ export default async function DashboardPage() {
             {lastRun && <p className="text-xs text-slate-500 mt-0.5">Last synced: {new Date(lastRun.started_at * 1000).toLocaleString('en-GB')} · cursor saved</p>}
           </div>
           <div className="flex items-center gap-2">
-            <ConnectionBadgesWrapper monzoConnected={monzoConnected} googleAccountCount={googleAccountCount} />
+            <ConnectionBadgesWrapper monzoConnected={monzoConnected && !monzoError} googleAccountCount={googleAccountCount} />
             <div className="flex items-center gap-2 pl-3 border-l border-slate-800">
               <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-xs font-semibold text-slate-300">
                 {username[0]?.toUpperCase() ?? '?'}
@@ -87,11 +93,11 @@ export default async function DashboardPage() {
         <StatsRow total={stats.total} submitted={stats.submitted} pendingReview={stats.pending_review} noMatch={stats.no_match} />
 
         <div className="bg-slate-800 rounded-xl p-4 space-y-4">
-          <RunSection accounts={accounts} defaultSelected={savedAccounts} defaultLookbackDays={lookbackDays} defaultOnlyOnline={onlyOnline} />
+          <RunSection accounts={accounts} defaultSelected={savedAccounts} defaultLookbackDays={lookbackDays} defaultOnlyOnline={onlyOnline} monzoError={monzoError} />
           <ScheduleStatus enabled={scheduleEnabled} cronExpr={scheduleCron} appriseUrls={appriseUrls} />
         </div>
 
-        <LastRunResults run={lastRunSummary} pendingCount={pendingReviews.length} />
+        <LastRunResults run={lastRunSummary} pendingCount={pendingReviews.length} accounts={accounts} />
       </div>
     </main>
   )

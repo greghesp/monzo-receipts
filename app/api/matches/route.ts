@@ -29,8 +29,9 @@ export async function GET(req: NextRequest) {
   const offset = parseInt(req.nextUrl.searchParams.get('offset') ?? '0', 10)
   const status = req.nextUrl.searchParams.get('status') ?? ''
   const onlineOnly = req.nextUrl.searchParams.get('online') === 'true'
+  const accountId = req.nextUrl.searchParams.get('accountId') ?? undefined
 
-  const matches = getMatchesForUserFiltered(db, userId, status, onlineOnly, limit, offset)
+  const matches = getMatchesForUserFiltered(db, userId, status, onlineOnly, limit, offset, accountId)
 
-  return NextResponse.json({ matches, stats: getMatchStatsForUser(db, userId) })
+  return NextResponse.json({ matches, stats: getMatchStatsForUser(db, userId, accountId) })
 }

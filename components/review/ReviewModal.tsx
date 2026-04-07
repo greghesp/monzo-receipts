@@ -33,7 +33,7 @@ export default function ReviewModal({ match, total, current, onApprove, onSkip }
               <p className="text-xs text-slate-500 mb-2">Transaction</p>
               <p className="text-sm font-medium text-white">{match.merchant}</p>
               <p className="text-sm text-amber-400">£{(match.amount / 100).toFixed(2)}</p>
-              <p className="text-xs text-slate-500 mt-1">{new Date(match.matched_at * 1000).toLocaleDateString('en-GB')}</p>
+              <p className="text-xs text-slate-500 mt-1">{match.transaction_date ? new Date(match.transaction_date).toLocaleDateString('en-GB') : '—'}</p>
             </div>
             <div className="bg-slate-900 rounded-xl p-3">
               <p className="text-xs text-slate-500 mb-2">Email receipt</p>

@@ -10,6 +10,7 @@ interface Props {
   defaultSelected: string[]
   defaultLookbackDays: number
   defaultOnlyOnline: boolean
+  monzoError?: boolean
 }
 
 interface LogEvent {
@@ -24,7 +25,7 @@ interface StatusResponse {
 
 const LOOKBACK_OPTIONS = [7, 14, 30, 60, 90]
 
-export default function RunSection({ accounts, defaultSelected, defaultLookbackDays, defaultOnlyOnline }: Props) {
+export default function RunSection({ accounts, defaultSelected, defaultLookbackDays, defaultOnlyOnline, monzoError }: Props) {
   const router = useRouter()
 
   // Run controls state
@@ -109,6 +110,14 @@ export default function RunSection({ accounts, defaultSelected, defaultLookbackD
 
   return (
     <div className="space-y-4">
+      {monzoError && (
+        <div className="flex items-center justify-between bg-amber-950/50 border border-amber-800 rounded-lg px-3 py-2">
+          <span className="text-xs text-amber-300">Monzo session expired — reconnect to scan accounts</span>
+          <a href="/api/auth/monzo" className="text-xs text-amber-200 hover:text-white font-semibold underline transition-colors whitespace-nowrap ml-3">
+            Reconnect
+          </a>
+        </div>
+      )}
       {/* Controls */}
       <div className="space-y-3">
         <div className="flex items-start gap-4">
